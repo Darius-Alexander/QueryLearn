@@ -4,11 +4,12 @@ QueryLearn is a local-first RAG learning platform for chatting with course mater
 
 ## Current Status
 
-Step 1 is a minimal FastAPI backend with one health endpoint:
+The project has a minimal full-stack setup:
 
-```text
-GET /api/health
-```
+- FastAPI backend with a health endpoint
+- Hardcoded course API
+- Vite + React frontend
+- Frontend-to-backend health check
 
 ## Backend Setup
 
@@ -22,22 +23,39 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Then open:
+Backend health check:
 
 ```text
 http://127.0.0.1:8001/api/health
 ```
 
-Expected response:
+Course API:
 
-```json
-{"status":"ok"}
+```text
+http://127.0.0.1:8001/api/courses
 ```
 
-FastAPI docs are available at:
+FastAPI docs:
 
 ```text
 http://127.0.0.1:8001/docs
+```
+
+## Frontend Setup
+
+Open a second terminal from the repo root:
+
+```powershell
+cd frontend
+npm.cmd install
+Copy-Item .env.example .env.local
+npm.cmd run dev -- --host 127.0.0.1
+```
+
+Frontend app:
+
+```text
+http://127.0.0.1:5173
 ```
 
 ## Project Structure
@@ -48,4 +66,11 @@ backend/
     __init__.py
     main.py
   requirements.txt
+
+frontend/
+  src/
+    App.tsx
+    main.tsx
+  package.json
+  vite.config.ts
 ```

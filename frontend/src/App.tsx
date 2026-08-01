@@ -1,21 +1,37 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8001";
+
 type HealthResponse = {
   status: string;
 };
 
+type Course = {
+  id: string;
+  name: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
+  const [courses, setCourses] = useState<Course[]>([]);
 
   useEffect(() => {
-    fetch("http://127.0.0.1:8001/api/health")
+    fetch(`${API_BASE_URL}/api/health`)
       .then((response) => response.json())
       .then((data: HealthResponse) => {
         setBackendStatus(data.status);
       })
       .catch(() => {
         setBackendStatus("offline");
+      });
+  }, []);
+
+  useEffect(() => {
+    fetch(`${API_BASE_URL}/api/courses`)
+      .then((response) => response.json())
+      .then((data: Course[]) => {
+        setCourses(data);
       });
   }, []);
 
@@ -27,6 +43,15 @@ function App() {
       <section>
         <h2>Backend connection</h2>
         <p>Status: {backendStatus}</p>
+      </section>
+
+      <section>
+        <h2>Courses</h2>
+        <ul>
+          {courses.map((course) => (
+            <li key={course.id}>{course.name}</li>
+          ))}
+        </ul>
       </section>
     </main>
   );
