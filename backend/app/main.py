@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from .db import init_db, list_courses as list_courses_from_db
 
 app = FastAPI(title="QueryLearn API")
 
@@ -21,10 +22,9 @@ class Course(BaseModel):
     name: str
 
 
-COURSES = [
-    Course(id="biology-101", name="Biology 101"),
-    Course(id="cs-201", name="Computer Science 201"),
-]
+@app.on_event("startup")
+def startup() -> None:
+    init_db()
 
 
 @app.get("/api/health")
@@ -34,4 +34,5 @@ def health() -> dict[str, str]:
 
 @app.get("/api/courses")
 def list_courses() -> list[Course]:
-    return COURSES
+    rows = list_courses_from_db()
+    return [Course(id=row["id"], name=row["name"]) for row in rows]

@@ -7,7 +7,7 @@ QueryLearn is a local-first RAG learning platform for chatting with course mater
 The project has a minimal full-stack setup:
 
 - FastAPI backend with a health endpoint
-- Hardcoded course API
+- SQLite-backed course API
 - Vite + React frontend
 - Frontend-to-backend health check
 
@@ -64,7 +64,9 @@ http://127.0.0.1:5173
 backend/
   app/
     __init__.py
+    db.py
     main.py
+  data/           local SQLite data, ignored by Git
   requirements.txt
 
 frontend/
