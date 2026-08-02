@@ -2,6 +2,7 @@ import re
 import sqlite3
 import uuid
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterator
 
@@ -39,6 +40,18 @@ def init_db() -> None:
                 course_id TEXT NOT NULL,
                 title TEXT NOT NULL,
                 FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS messages (
+                id TEXT PRIMARY KEY,
+                chat_id TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
             )
             """
         )
@@ -93,6 +106,49 @@ def list_chats_for_course(course_id: str) -> list[sqlite3.Row]:
             "SELECT id, course_id, title FROM chats WHERE course_id = ? ORDER BY title",
             (course_id,),
         ).fetchall()
+
+
+def get_chat(chat_id: str) -> sqlite3.Row | None:
+    with get_connection() as connection:
+        return connection.execute(
+            "SELECT id, course_id, title FROM chats WHERE id = ?",
+            (chat_id,),
+        ).fetchone()
+
+
+def list_messages_for_chat(chat_id: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT id, chat_id, role, content, created_at
+            FROM messages
+            WHERE chat_id = ?
+            ORDER BY created_at, id
+            """,
+            (chat_id,),
+        ).fetchall()
+
+
+def create_message(chat_id: str, role: str, content: str) -> sqlite3.Row:
+    message_id = str(uuid.uuid4())
+    created_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO messages (id, chat_id, role, content, created_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (message_id, chat_id, role, content.strip(), created_at),
+        )
+        return connection.execute(
+            """
+            SELECT id, chat_id, role, content, created_at
+            FROM messages
+            WHERE id = ?
+            """,
+            (message_id,),
+        ).fetchone()
 
 
 def create_chat(course_id: str, title: str) -> sqlite3.Row:
@@ -158,3 +214,7 @@ def build_chat_id(course_id: str, title: str) -> str:
         return chat_id
 
     return f"{chat_id}-{uuid.uuid4().hex[:8]}"
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

@@ -18,11 +18,24 @@ type Chat = {
   title: string;
 };
 
+type Message = {
+  id: string;
+  chat_id: string;
+  role: string;
+  content: string;
+  created_at: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
+  const [selectedChatId, setSelectedChatId] = useState("");
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [messageContent, setMessageContent] = useState("");
+  const [messageError, setMessageError] = useState("");
+  const [isCreatingMessage, setIsCreatingMessage] = useState(false);
   const [chatTitle, setChatTitle] = useState("");
   const [chatError, setChatError] = useState("");
   const [isCreatingChat, setIsCreatingChat] = useState(false);
@@ -65,12 +78,38 @@ function App() {
       .then((data: Chat[]) => {
         setChatError("");
         setChats(data);
+        setSelectedChatId((currentChatId) =>
+          data.some((chat) => chat.id === currentChatId) ? currentChatId : data[0]?.id || "",
+        );
       })
       .catch(() => {
         setChats([]);
+        setSelectedChatId("");
         setChatError("Could not load chats for this course.");
       });
   }, [selectedCourseId]);
+
+  useEffect(() => {
+    if (!selectedChatId) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/api/chats/${selectedChatId}/messages`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load messages");
+        }
+        return response.json();
+      })
+      .then((data: Message[]) => {
+        setMessageError("");
+        setMessages(data);
+      })
+      .catch(() => {
+        setMessages([]);
+        setMessageError("Could not load messages for this chat.");
+      });
+  }, [selectedChatId]);
 
   function handleCreateCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -112,6 +151,14 @@ function App() {
       });
   }
 
+  function handleSelectCourse(courseId: string) {
+    setSelectedCourseId(courseId);
+    setSelectedChatId("");
+    setChats([]);
+    setMessages([]);
+    setMessageError("");
+  }
+
   function handleCreateChat(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -146,6 +193,7 @@ function App() {
         setChats((currentChats) =>
           [...currentChats, createdChat].sort((a, b) => a.title.localeCompare(b.title)),
         );
+        setSelectedChatId(createdChat.id);
         setChatTitle("");
       })
       .catch(() => {
@@ -153,6 +201,54 @@ function App() {
       })
       .finally(() => {
         setIsCreatingChat(false);
+      });
+  }
+
+  function handleSelectChat(chatId: string) {
+    setSelectedChatId(chatId);
+    setMessages([]);
+    setMessageError("");
+  }
+
+  function handleCreateMessage(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedChatId) {
+      setMessageError("Select a chat before sending a message.");
+      return;
+    }
+
+    const content = messageContent.trim();
+    if (!content) {
+      setMessageError("Message content is required");
+      return;
+    }
+
+    setMessageError("");
+    setIsCreatingMessage(true);
+
+    fetch(`${API_BASE_URL}/api/chats/${selectedChatId}/messages`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role: "user", content }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not send message");
+        }
+        return response.json();
+      })
+      .then((createdMessage: Message) => {
+        setMessages((currentMessages) => [...currentMessages, createdMessage]);
+        setMessageContent("");
+      })
+      .catch(() => {
+        setMessageError("Could not send message. Check that the backend is running.");
+      })
+      .finally(() => {
+        setIsCreatingMessage(false);
       });
   }
 
@@ -185,7 +281,7 @@ function App() {
         <ul>
           {courses.map((course) => (
             <li key={course.id}>
-              <button type="button" onClick={() => setSelectedCourseId(course.id)}>
+              <button type="button" onClick={() => handleSelectCourse(course.id)}>
                 {course.name}
                 {course.id === selectedCourseId ? " (selected)" : ""}
               </button>
@@ -215,7 +311,40 @@ function App() {
         {selectedCourseId && chats.length === 0 && !chatError && <p>No chats for this course yet.</p>}
         <ul>
           {chats.map((chat) => (
-            <li key={chat.id}>{chat.title}</li>
+            <li key={chat.id}>
+              <button type="button" onClick={() => handleSelectChat(chat.id)}>
+                {chat.title}
+                {chat.id === selectedChatId ? " (selected)" : ""}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Messages</h2>
+        <form onSubmit={handleCreateMessage}>
+          <label htmlFor="message-content">Message</label>
+          <input
+            id="message-content"
+            type="text"
+            value={messageContent}
+            onChange={(event) => setMessageContent(event.target.value)}
+            placeholder="Ask a question"
+            disabled={!selectedChatId}
+          />
+          <button type="submit" disabled={!selectedChatId || isCreatingMessage}>
+            {isCreatingMessage ? "Sending..." : "Send"}
+          </button>
+        </form>
+        {messageError && <p>{messageError}</p>}
+        {!selectedChatId && <p>Select a chat to view messages.</p>}
+        {selectedChatId && messages.length === 0 && !messageError && <p>No messages in this chat yet.</p>}
+        <ul>
+          {messages.map((message) => (
+            <li key={message.id}>
+              <strong>{message.role}:</strong> {message.content}
+            </li>
           ))}
         </ul>
       </section>

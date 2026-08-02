@@ -9,6 +9,7 @@ The project has a minimal full-stack setup:
 - FastAPI backend with a health endpoint
 - SQLite-backed course API
 - SQLite-backed chats for each course
+- SQLite-backed messages for each chat
 - Vite + React frontend
 - Frontend-to-backend health check
 
@@ -46,6 +47,18 @@ Create a chat for a course:
 
 ```text
 POST http://127.0.0.1:8001/api/courses/biology-101/chats
+```
+
+Messages for a chat:
+
+```text
+http://127.0.0.1:8001/api/chats/biology-101-general/messages
+```
+
+Create a message in a chat:
+
+```text
+POST http://127.0.0.1:8001/api/chats/biology-101-general/messages
 ```
 
 FastAPI docs:
