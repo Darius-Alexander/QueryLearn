@@ -12,9 +12,20 @@ type Course = {
   name: string;
 };
 
+type Chat = {
+  id: string;
+  course_id: string;
+  title: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [chats, setChats] = useState<Chat[]>([]);
+  const [chatTitle, setChatTitle] = useState("");
+  const [chatError, setChatError] = useState("");
+  const [isCreatingChat, setIsCreatingChat] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [courseError, setCourseError] = useState("");
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
@@ -35,8 +46,31 @@ function App() {
       .then((response) => response.json())
       .then((data: Course[]) => {
         setCourses(data);
+        setSelectedCourseId((currentCourseId) => currentCourseId || data[0]?.id || "");
       });
   }, []);
+
+  useEffect(() => {
+    if (!selectedCourseId) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/api/courses/${selectedCourseId}/chats`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load chats");
+        }
+        return response.json();
+      })
+      .then((data: Chat[]) => {
+        setChatError("");
+        setChats(data);
+      })
+      .catch(() => {
+        setChats([]);
+        setChatError("Could not load chats for this course.");
+      });
+  }, [selectedCourseId]);
 
   function handleCreateCourse(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -67,6 +101,7 @@ function App() {
         setCourses((currentCourses) =>
           [...currentCourses, createdCourse].sort((a, b) => a.name.localeCompare(b.name)),
         );
+        setSelectedCourseId(createdCourse.id);
         setCourseName("");
       })
       .catch(() => {
@@ -74,6 +109,50 @@ function App() {
       })
       .finally(() => {
         setIsCreatingCourse(false);
+      });
+  }
+
+  function handleCreateChat(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedCourseId) {
+      setChatError("Select a course before creating a chat.");
+      return;
+    }
+
+    const title = chatTitle.trim();
+    if (!title) {
+      setChatError("Chat title is required");
+      return;
+    }
+
+    setChatError("");
+    setIsCreatingChat(true);
+
+    fetch(`${API_BASE_URL}/api/courses/${selectedCourseId}/chats`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ title }),
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not create chat");
+        }
+        return response.json();
+      })
+      .then((createdChat: Chat) => {
+        setChats((currentChats) =>
+          [...currentChats, createdChat].sort((a, b) => a.title.localeCompare(b.title)),
+        );
+        setChatTitle("");
+      })
+      .catch(() => {
+        setChatError("Could not create chat. Check that the backend is running.");
+      })
+      .finally(() => {
+        setIsCreatingChat(false);
       });
   }
 
@@ -105,7 +184,38 @@ function App() {
         {courseError && <p>{courseError}</p>}
         <ul>
           {courses.map((course) => (
-            <li key={course.id}>{course.name}</li>
+            <li key={course.id}>
+              <button type="button" onClick={() => setSelectedCourseId(course.id)}>
+                {course.name}
+                {course.id === selectedCourseId ? " (selected)" : ""}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
+        <h2>Chats</h2>
+        <form onSubmit={handleCreateChat}>
+          <label htmlFor="chat-title">Chat title</label>
+          <input
+            id="chat-title"
+            type="text"
+            value={chatTitle}
+            onChange={(event) => setChatTitle(event.target.value)}
+            placeholder="Midterm review"
+            disabled={!selectedCourseId}
+          />
+          <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
+            {isCreatingChat ? "Adding..." : "Add chat"}
+          </button>
+        </form>
+        {chatError && <p>{chatError}</p>}
+        {!selectedCourseId && <p>Select a course to view chats.</p>}
+        {selectedCourseId && chats.length === 0 && !chatError && <p>No chats for this course yet.</p>}
+        <ul>
+          {chats.map((chat) => (
+            <li key={chat.id}>{chat.title}</li>
           ))}
         </ul>
       </section>
