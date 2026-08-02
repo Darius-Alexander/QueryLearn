@@ -1,17 +1,23 @@
 # QueryLearn
 
-QueryLearn is a local-first RAG learning platform for chatting with course materials. Students will upload notes, textbooks, slides, and documents, then ask questions answered with source-grounded citations.
+QueryLearn is a local-first RAG learning platform for chatting with course materials. Students will organize work by course, upload learning materials, and ask questions answered with source-grounded citations.
 
-## Current Status
+## Status
 
-The project has a minimal full-stack setup:
+The project currently has a minimal local chat foundation:
 
-- FastAPI backend with a health endpoint
-- SQLite-backed course API
-- SQLite-backed chats for each course
-- SQLite-backed messages for each chat
+- FastAPI backend
+- SQLite persistence for courses, chats, and messages
 - Vite + React frontend
-- Frontend-to-backend health check
+- Local frontend-to-backend API connection
+
+RAG ingestion, document parsing, retrieval, citations, and AI responses are planned next.
+
+## Tech Stack
+
+- Backend: FastAPI
+- Database: SQLite
+- Frontend: Vite, React, TypeScript
 
 ## Backend Setup
 
@@ -29,36 +35,6 @@ Backend health check:
 
 ```text
 http://127.0.0.1:8001/api/health
-```
-
-Course API:
-
-```text
-http://127.0.0.1:8001/api/courses
-```
-
-Chats for a course:
-
-```text
-http://127.0.0.1:8001/api/courses/biology-101/chats
-```
-
-Create a chat for a course:
-
-```text
-POST http://127.0.0.1:8001/api/courses/biology-101/chats
-```
-
-Messages for a chat:
-
-```text
-http://127.0.0.1:8001/api/chats/biology-101-general/messages
-```
-
-Create a message in a chat:
-
-```text
-POST http://127.0.0.1:8001/api/chats/biology-101-general/messages
 ```
 
 FastAPI docs:
@@ -89,16 +65,14 @@ http://127.0.0.1:5173
 ```text
 backend/
   app/
-    __init__.py
+    routes/
     db.py
     main.py
-  data/           local SQLite data, ignored by Git
+    models.py
   requirements.txt
 
 frontend/
   src/
-    App.tsx
-    main.tsx
   package.json
   vite.config.ts
 ```
