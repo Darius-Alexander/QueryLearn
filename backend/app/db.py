@@ -1,4 +1,6 @@
+import re
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterator
@@ -49,3 +51,35 @@ def seed_courses(connection: sqlite3.Connection) -> None:
 def list_courses() -> list[sqlite3.Row]:
     with get_connection() as connection:
         return connection.execute("SELECT id, name FROM courses ORDER BY name").fetchall()
+
+
+def create_course(name: str) -> sqlite3.Row:
+    clean_name = name.strip()
+    course_id = build_course_id(clean_name)
+
+    with get_connection() as connection:
+        connection.execute(
+            "INSERT INTO courses (id, name) VALUES (?, ?)",
+            (course_id, clean_name),
+        )
+        return connection.execute(
+            "SELECT id, name FROM courses WHERE id = ?",
+            (course_id,),
+        ).fetchone()
+
+
+def build_course_id(name: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
+    if not slug:
+        slug = "course"
+
+    with get_connection() as connection:
+        existing = connection.execute(
+            "SELECT id FROM courses WHERE id = ?",
+            (slug,),
+        ).fetchone()
+
+    if existing is None:
+        return slug
+
+    return f"{slug}-{uuid.uuid4().hex[:8]}"
