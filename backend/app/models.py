@@ -31,3 +31,17 @@ class Message(BaseModel):
 class MessageCreate(BaseModel):
     role: str
     content: str
+
+
+class Document(BaseModel):
+    id: str
+    course_id: str
+    original_filename: str
+    stored_filename: str
+    content_type: str | None
+    file_extension: str
+    file_size: int
+    status: str
+    created_at: str
+    updated_at: str
+    error: str | None = None

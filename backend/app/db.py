@@ -55,6 +55,26 @@ def init_db() -> None:
             )
             """
         )
+        reset_empty_legacy_documents_table(connection)
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS documents (
+                id TEXT PRIMARY KEY,
+                course_id TEXT NOT NULL,
+                original_filename TEXT NOT NULL,
+                stored_filename TEXT NOT NULL,
+                content_type TEXT,
+                file_extension TEXT NOT NULL,
+                file_size INTEGER NOT NULL,
+                storage_path TEXT NOT NULL,
+                status TEXT NOT NULL,
+                error TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+            )
+            """
+        )
         seed_courses(connection)
         seed_chats(connection)
 
@@ -85,6 +105,42 @@ def seed_chats(connection: sqlite3.Connection) -> None:
             ("cs-201-general", "cs-201", "General questions"),
         ],
     )
+
+
+def reset_empty_legacy_documents_table(connection: sqlite3.Connection) -> None:
+    table_exists = connection.execute(
+        "SELECT 1 FROM sqlite_master WHERE type = ? AND name = ?",
+        ("table", "documents"),
+    ).fetchone()
+    if table_exists is None:
+        return
+
+    columns = {
+        row["name"]
+        for row in connection.execute("PRAGMA table_info(documents)").fetchall()
+    }
+    required_columns = {
+        "id",
+        "course_id",
+        "original_filename",
+        "stored_filename",
+        "content_type",
+        "file_extension",
+        "file_size",
+        "storage_path",
+        "status",
+        "error",
+        "created_at",
+        "updated_at",
+    }
+    if required_columns.issubset(columns):
+        return
+
+    document_count = connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+    if document_count > 0:
+        raise RuntimeError("Documents table schema is out of date and contains data")
+
+    connection.execute("DROP TABLE documents")
 
 
 def list_courses() -> list[sqlite3.Row]:
@@ -178,6 +234,118 @@ def create_course(name: str) -> sqlite3.Row:
         return connection.execute(
             "SELECT id, name FROM courses WHERE id = ?",
             (course_id,),
+        ).fetchone()
+
+
+def list_documents_for_course(course_id: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT
+                id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                status,
+                error,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE course_id = ?
+            ORDER BY created_at DESC, original_filename
+            """,
+            (course_id,),
+        ).fetchall()
+
+
+def get_document(document_id: str) -> sqlite3.Row | None:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT
+                id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                status,
+                error,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        ).fetchone()
+
+
+def create_document(
+    document_id: str,
+    course_id: str,
+    original_filename: str,
+    stored_filename: str,
+    content_type: str | None,
+    file_extension: str,
+    file_size: int,
+    storage_path: str,
+) -> sqlite3.Row:
+    created_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            """
+            INSERT INTO documents (
+                id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                storage_path,
+                status,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                document_id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                storage_path,
+                "uploaded",
+                created_at,
+                created_at,
+            ),
+        )
+        return connection.execute(
+            """
+            SELECT
+                id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                status,
+                error,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
         ).fetchone()
 
 
