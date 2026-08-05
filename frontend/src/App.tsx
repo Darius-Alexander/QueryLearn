@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type ChangeEvent, type FormEvent, useEffect, useRef, useState } from "react";
 import "./App.css";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8001";
@@ -26,10 +26,28 @@ type Message = {
   created_at: string;
 };
 
+type SourceDocument = {
+  id: string;
+  course_id: string;
+  original_filename: string;
+  stored_filename: string;
+  content_type: string | null;
+  file_extension: string;
+  file_size: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  error: string | null;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [documents, setDocuments] = useState<SourceDocument[]>([]);
+  const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
+  const [documentError, setDocumentError] = useState("");
+  const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -42,6 +60,7 @@ function App() {
   const [courseName, setCourseName] = useState("");
   const [courseError, setCourseError] = useState("");
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/health`)
@@ -86,6 +105,28 @@ function App() {
         setChats([]);
         setSelectedChatId("");
         setChatError("Could not load chats for this course.");
+      });
+  }, [selectedCourseId]);
+
+  useEffect(() => {
+    if (!selectedCourseId) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/api/courses/${selectedCourseId}/documents`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load documents");
+        }
+        return response.json();
+      })
+      .then((data: SourceDocument[]) => {
+        setDocumentError("");
+        setDocuments(data);
+      })
+      .catch(() => {
+        setDocuments([]);
+        setDocumentError("Could not load documents for this course.");
       });
   }, [selectedCourseId]);
 
@@ -154,9 +195,64 @@ function App() {
   function handleSelectCourse(courseId: string) {
     setSelectedCourseId(courseId);
     setSelectedChatId("");
+    setDocuments([]);
+    setSelectedDocumentFile(null);
     setChats([]);
     setMessages([]);
+    setDocumentError("");
     setMessageError("");
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  }
+
+  function handleDocumentFileChange(event: ChangeEvent<HTMLInputElement>) {
+    setSelectedDocumentFile(event.target.files?.[0] ?? null);
+    setDocumentError("");
+  }
+
+  function handleUploadDocument(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedCourseId) {
+      setDocumentError("Select a course before uploading a document.");
+      return;
+    }
+
+    if (!selectedDocumentFile) {
+      setDocumentError("Choose a document before uploading.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", selectedDocumentFile);
+
+    setDocumentError("");
+    setIsUploadingDocument(true);
+
+    fetch(`${API_BASE_URL}/api/courses/${selectedCourseId}/documents`, {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not upload document");
+        }
+        return response.json();
+      })
+      .then((createdDocument: SourceDocument) => {
+        setDocuments((currentDocuments) => [createdDocument, ...currentDocuments]);
+        setSelectedDocumentFile(null);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = "";
+        }
+      })
+      .catch(() => {
+        setDocumentError("Could not upload document. Check the file type and backend connection.");
+      })
+      .finally(() => {
+        setIsUploadingDocument(false);
+      });
   }
 
   function handleCreateChat(event: FormEvent<HTMLFormElement>) {
@@ -322,6 +418,37 @@ function App() {
       </section>
 
       <section>
+        <h2>Documents</h2>
+        <form onSubmit={handleUploadDocument}>
+          <label htmlFor="document-file">Document</label>
+          <input
+            id="document-file"
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
+            onChange={handleDocumentFileChange}
+            disabled={!selectedCourseId || isUploadingDocument}
+          />
+          <button type="submit" disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}>
+            {isUploadingDocument ? "Uploading..." : "Upload document"}
+          </button>
+        </form>
+        {documentError && <p>{documentError}</p>}
+        {!selectedCourseId && <p>Select a course to view documents.</p>}
+        {selectedCourseId && documents.length === 0 && !documentError && <p>No documents for this course yet.</p>}
+        <ul>
+          {documents.map((document) => (
+            <li key={document.id}>
+              <strong>{document.original_filename}</strong>{" "}
+              <span>
+                {document.status} - {document.file_extension} - {formatFileSize(document.file_size)}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      <section>
         <h2>Messages</h2>
         <form onSubmit={handleCreateMessage}>
           <label htmlFor="message-content">Message</label>
@@ -350,6 +477,18 @@ function App() {
       </section>
     </main>
   );
+}
+
+function formatFileSize(bytes: number) {
+  if (bytes < 1024) {
+    return `${bytes} B`;
+  }
+
+  if (bytes < 1024 * 1024) {
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 export default App;
