@@ -1,4 +1,5 @@
 import re
+import json
 import sqlite3
 import uuid
 from contextlib import contextmanager
@@ -72,6 +73,21 @@ def init_db() -> None:
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS parsed_sections (
+                id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                section_index INTEGER NOT NULL,
+                kind TEXT NOT NULL,
+                label TEXT NOT NULL,
+                text TEXT NOT NULL,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE
             )
             """
         )
@@ -249,6 +265,7 @@ def list_documents_for_course(course_id: str) -> list[sqlite3.Row]:
                 content_type,
                 file_extension,
                 file_size,
+                storage_path,
                 status,
                 error,
                 created_at,
@@ -273,6 +290,7 @@ def get_document(document_id: str) -> sqlite3.Row | None:
                 content_type,
                 file_extension,
                 file_size,
+                storage_path,
                 status,
                 error,
                 created_at,
@@ -338,6 +356,7 @@ def create_document(
                 content_type,
                 file_extension,
                 file_size,
+                storage_path,
                 status,
                 error,
                 created_at,
@@ -347,6 +366,110 @@ def create_document(
             """,
             (document_id,),
         ).fetchone()
+
+
+def update_document_status(document_id: str, status: str, error: str | None = None) -> sqlite3.Row:
+    updated_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            """
+            UPDATE documents
+            SET status = ?, error = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (status, error, updated_at, document_id),
+        )
+        return connection.execute(
+            """
+            SELECT
+                id,
+                course_id,
+                original_filename,
+                stored_filename,
+                content_type,
+                file_extension,
+                file_size,
+                storage_path,
+                status,
+                error,
+                created_at,
+                updated_at
+            FROM documents
+            WHERE id = ?
+            """,
+            (document_id,),
+        ).fetchone()
+
+
+def replace_parsed_sections(
+    document_id: str,
+    sections: list[dict[str, object]],
+) -> list[sqlite3.Row]:
+    created_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM parsed_sections WHERE document_id = ?",
+            (document_id,),
+        )
+        connection.executemany(
+            """
+            INSERT INTO parsed_sections (
+                id,
+                document_id,
+                section_index,
+                kind,
+                label,
+                text,
+                metadata_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    str(uuid.uuid4()),
+                    document_id,
+                    section["section_index"],
+                    section["kind"],
+                    section["label"],
+                    section["text"],
+                    json.dumps(section.get("metadata", {}), sort_keys=True),
+                    created_at,
+                )
+                for section in sections
+            ],
+        )
+        return list_parsed_sections_for_document_with_connection(connection, document_id)
+
+
+def list_parsed_sections_for_document(document_id: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return list_parsed_sections_for_document_with_connection(connection, document_id)
+
+
+def list_parsed_sections_for_document_with_connection(
+    connection: sqlite3.Connection,
+    document_id: str,
+) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            id,
+            document_id,
+            section_index,
+            kind,
+            label,
+            text,
+            metadata_json,
+            created_at
+        FROM parsed_sections
+        WHERE document_id = ?
+        ORDER BY section_index
+        """,
+        (document_id,),
+    ).fetchall()
 
 
 def build_course_id(name: str) -> str:

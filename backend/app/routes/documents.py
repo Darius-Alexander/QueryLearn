@@ -1,3 +1,4 @@
+import json
 import re
 import shutil
 import uuid
@@ -7,8 +8,11 @@ from fastapi import APIRouter, File, HTTPException, UploadFile
 
 from ..db import create_document as create_document_in_db
 from ..db import get_course, get_document
+from ..db import list_parsed_sections_for_document
 from ..db import list_documents_for_course as list_documents_for_course_from_db
-from ..models import Document
+from ..models import Document, ParsedSection
+from ..parsing.parsers import UnsupportedDocumentTypeError
+from ..parsing.service import parse_document_row
 
 
 router = APIRouter()
@@ -75,6 +79,33 @@ def get_document_metadata(document_id: str) -> Document:
     return document_from_row(row)
 
 
+@router.post("/documents/{document_id}/parse")
+def parse_document(document_id: str) -> list[ParsedSection]:
+    row = get_document(document_id)
+    if row is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        sections = parse_document_row(row)
+    except UnsupportedDocumentTypeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except UnicodeDecodeError as error:
+        raise HTTPException(status_code=400, detail="Document is not valid UTF-8 text") from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail="Stored document could not be read") from error
+
+    return [parsed_section_from_row(section) for section in sections]
+
+
+@router.get("/documents/{document_id}/sections")
+def list_document_sections(document_id: str) -> list[ParsedSection]:
+    if get_document(document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    rows = list_parsed_sections_for_document(document_id)
+    return [parsed_section_from_row(row) for row in rows]
+
+
 def document_from_row(row) -> Document:
     return Document(
         id=row["id"],
@@ -88,6 +119,19 @@ def document_from_row(row) -> Document:
         error=row["error"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+    )
+
+
+def parsed_section_from_row(row) -> ParsedSection:
+    return ParsedSection(
+        id=row["id"],
+        document_id=row["document_id"],
+        section_index=row["section_index"],
+        kind=row["kind"],
+        label=row["label"],
+        text=row["text"],
+        metadata=json.loads(row["metadata_json"] or "{}"),
+        created_at=row["created_at"],
     )
 
 

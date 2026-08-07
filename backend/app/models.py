@@ -45,3 +45,14 @@ class Document(BaseModel):
     created_at: str
     updated_at: str
     error: str | None = None
+
+
+class ParsedSection(BaseModel):
+    id: str
+    document_id: str
+    section_index: int
+    kind: str
+    label: str
+    text: str
+    metadata: dict[str, object]
+    created_at: str
