@@ -94,6 +94,18 @@ li button {
   text-align: left;
 }
 
+.document-row {
+  align-items: stretch;
+}
+
+.document-summary {
+  flex: 1 1 320px;
+}
+
+.document-row > button:not(.document-summary) {
+  width: auto;
+}
+
 li span {
   color: var(--text);
   font-size: 14px;
@@ -103,13 +115,40 @@ strong {
   color: var(--text-h);
 }
 
+.section-preview {
+  display: grid;
+  gap: 12px;
+}
+
+h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 18px;
+  font-weight: 600;
+}
+
+pre {
+  width: 100%;
+  max-height: 260px;
+  box-sizing: border-box;
+  overflow: auto;
+  margin: 8px 0 0;
+  border-radius: 6px;
+  padding: 12px;
+  color: var(--text-h);
+  background: var(--code-bg);
+  font: 14px/1.5 var(--mono);
+  white-space: pre-wrap;
+}
+
 @media (max-width: 700px) {
   main {
     padding: 24px 18px;
   }
 
   input,
-  button {
+  button,
+  .document-row > button:not(.document-summary) {
     width: 100%;
   }
 }

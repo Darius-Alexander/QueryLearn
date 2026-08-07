@@ -40,14 +40,29 @@ type SourceDocument = {
   error: string | null;
 };
 
+type ParsedSection = {
+  id: string;
+  document_id: string;
+  section_index: number;
+  kind: string;
+  label: string;
+  text: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [documents, setDocuments] = useState<SourceDocument[]>([]);
+  const [selectedDocumentId, setSelectedDocumentId] = useState("");
+  const [parsedSections, setParsedSections] = useState<ParsedSection[]>([]);
+  const [sectionError, setSectionError] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
   const [documentError, setDocumentError] = useState("");
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
+  const [parsingDocumentId, setParsingDocumentId] = useState("");
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -123,12 +138,38 @@ function App() {
       .then((data: SourceDocument[]) => {
         setDocumentError("");
         setDocuments(data);
+        setSelectedDocumentId((currentDocumentId) =>
+          data.some((document) => document.id === currentDocumentId) ? currentDocumentId : "",
+        );
       })
       .catch(() => {
         setDocuments([]);
+        setSelectedDocumentId("");
         setDocumentError("Could not load documents for this course.");
       });
   }, [selectedCourseId]);
+
+  useEffect(() => {
+    if (!selectedDocumentId) {
+      return;
+    }
+
+    fetch(`${API_BASE_URL}/api/documents/${selectedDocumentId}/sections`)
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not load parsed sections");
+        }
+        return response.json();
+      })
+      .then((data: ParsedSection[]) => {
+        setSectionError("");
+        setParsedSections(data);
+      })
+      .catch(() => {
+        setParsedSections([]);
+        setSectionError("Could not load parsed sections for this document.");
+      });
+  }, [selectedDocumentId]);
 
   useEffect(() => {
     if (!selectedChatId) {
@@ -196,10 +237,13 @@ function App() {
     setSelectedCourseId(courseId);
     setSelectedChatId("");
     setDocuments([]);
+    setSelectedDocumentId("");
+    setParsedSections([]);
     setSelectedDocumentFile(null);
     setChats([]);
     setMessages([]);
     setDocumentError("");
+    setSectionError("");
     setMessageError("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -242,6 +286,8 @@ function App() {
       })
       .then((createdDocument: SourceDocument) => {
         setDocuments((currentDocuments) => [createdDocument, ...currentDocuments]);
+        setSelectedDocumentId(createdDocument.id);
+        setParsedSections([]);
         setSelectedDocumentFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
@@ -252,6 +298,52 @@ function App() {
       })
       .finally(() => {
         setIsUploadingDocument(false);
+      });
+  }
+
+  function handleSelectDocument(documentId: string) {
+    setSelectedDocumentId(documentId);
+    setParsedSections([]);
+    setSectionError("");
+  }
+
+  function handleParseDocument(documentId: string) {
+    setDocumentError("");
+    setSectionError("");
+    setParsingDocumentId(documentId);
+
+    fetch(`${API_BASE_URL}/api/documents/${documentId}/parse`, {
+      method: "POST",
+    })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not parse document");
+        }
+        return response.json();
+      })
+      .then((sections: ParsedSection[]) => {
+        setParsedSections(sections);
+        setSelectedDocumentId(documentId);
+        return fetch(`${API_BASE_URL}/api/documents/${documentId}`);
+      })
+      .then((response) => {
+        if (!response.ok) {
+          throw new Error("Could not refresh document");
+        }
+        return response.json();
+      })
+      .then((updatedDocument: SourceDocument) => {
+        setDocuments((currentDocuments) =>
+          currentDocuments.map((document) =>
+            document.id === updatedDocument.id ? updatedDocument : document,
+          ),
+        );
+      })
+      .catch(() => {
+        setDocumentError("Could not parse document. Only .txt and .md files are supported right now.");
+      })
+      .finally(() => {
+        setParsingDocumentId("");
       });
   }
 
@@ -438,14 +530,47 @@ function App() {
         {selectedCourseId && documents.length === 0 && !documentError && <p>No documents for this course yet.</p>}
         <ul>
           {documents.map((document) => (
-            <li key={document.id}>
-              <strong>{document.original_filename}</strong>{" "}
-              <span>
-                {document.status} - {document.file_extension} - {formatFileSize(document.file_size)}
-              </span>
+            <li className="document-row" key={document.id}>
+              <button
+                className="document-summary"
+                type="button"
+                onClick={() => handleSelectDocument(document.id)}
+              >
+                <strong>{document.original_filename}</strong>{" "}
+                <span>
+                  {document.status} - {document.file_extension} - {formatFileSize(document.file_size)}
+                  {document.id === selectedDocumentId ? " - selected" : ""}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleParseDocument(document.id)}
+                disabled={parsingDocumentId === document.id}
+              >
+                {parsingDocumentId === document.id ? "Parsing..." : "Parse"}
+              </button>
             </li>
           ))}
         </ul>
+        {sectionError && <p>{sectionError}</p>}
+        {selectedDocumentId && parsedSections.length === 0 && !sectionError && (
+          <p>No parsed sections for this document yet.</p>
+        )}
+        {parsedSections.length > 0 && (
+          <div className="section-preview">
+            <h3>Parsed sections</h3>
+            <ul>
+              {parsedSections.map((section) => (
+                <li key={section.id}>
+                  <strong>
+                    {section.label} ({section.kind})
+                  </strong>
+                  <pre>{section.text}</pre>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
 
       <section>
