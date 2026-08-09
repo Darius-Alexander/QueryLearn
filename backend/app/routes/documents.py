@@ -11,7 +11,11 @@ from ..db import get_course, get_document
 from ..db import list_parsed_sections_for_document
 from ..db import list_documents_for_course as list_documents_for_course_from_db
 from ..models import Document, ParsedSection
-from ..parsing.parsers import UnsupportedDocumentTypeError
+from ..parsing.parsers import (
+    EmptyParsedDocumentError,
+    UnreadableDocumentError,
+    UnsupportedDocumentTypeError,
+)
 from ..parsing.service import parse_document_row
 
 
@@ -87,6 +91,10 @@ def parse_document(document_id: str) -> list[ParsedSection]:
 
     try:
         sections = parse_document_row(row)
+    except UnreadableDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmptyParsedDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
     except UnsupportedDocumentTypeError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except UnicodeDecodeError as error:

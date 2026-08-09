@@ -1,14 +1,25 @@
 import csv
 from pathlib import Path
 
+from pypdf import PdfReader
+
 from .models import ParsedDocument, ParsedDocumentSection
 
 
 TEXT_EXTENSIONS = {".md", ".txt"}
 CSV_EXTENSIONS = {".csv"}
+PDF_EXTENSIONS = {".pdf"}
 
 
 class UnsupportedDocumentTypeError(ValueError):
+    pass
+
+
+class EmptyParsedDocumentError(ValueError):
+    pass
+
+
+class UnreadableDocumentError(ValueError):
     pass
 
 
@@ -18,6 +29,8 @@ def parse_file(file_path: Path, file_extension: str) -> ParsedDocument:
         return parse_text_file(file_path)
     if normalized_extension in CSV_EXTENSIONS:
         return parse_csv_file(file_path)
+    if normalized_extension in PDF_EXTENSIONS:
+        return parse_pdf_file(file_path)
 
     raise UnsupportedDocumentTypeError(f"Parsing is not supported for {file_extension} files yet")
 
@@ -71,6 +84,43 @@ def format_csv_rows(rows: list[list[str]]) -> str:
 
 def format_csv_row(row: list[str]) -> str:
     return " | ".join(normalize_text(cell) for cell in row)
+
+
+def parse_pdf_file(file_path: Path) -> ParsedDocument:
+    try:
+        reader = PdfReader(file_path)
+        page_count = len(reader.pages)
+    except Exception as error:
+        raise UnreadableDocumentError("PDF could not be read") from error
+
+    sections: list[ParsedDocumentSection] = []
+
+    for page_index, page in enumerate(reader.pages, start=1):
+        try:
+            text = normalize_text(page.extract_text() or "")
+        except Exception as error:
+            raise UnreadableDocumentError(f"Text could not be extracted from page {page_index}") from error
+
+        if not text:
+            continue
+
+        sections.append(
+            ParsedDocumentSection(
+                kind="page",
+                label=f"Page {page_index}",
+                text=text,
+                metadata={
+                    "parser": "pypdf",
+                    "page_number": page_index,
+                    "page_count": page_count,
+                },
+            )
+        )
+
+    if not sections:
+        raise EmptyParsedDocumentError("No extractable text found in PDF")
+
+    return ParsedDocument(sections=sections)
 
 
 def normalize_text(text: str) -> str:
