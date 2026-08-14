@@ -1,6 +1,7 @@
 import csv
 from pathlib import Path
 
+from docx import Document as DocxDocument
 from pypdf import PdfReader
 
 from .models import ParsedDocument, ParsedDocumentSection
@@ -9,6 +10,7 @@ from .models import ParsedDocument, ParsedDocumentSection
 TEXT_EXTENSIONS = {".md", ".txt"}
 CSV_EXTENSIONS = {".csv"}
 PDF_EXTENSIONS = {".pdf"}
+DOCX_EXTENSIONS = {".docx"}
 
 
 class UnsupportedDocumentTypeError(ValueError):
@@ -31,6 +33,8 @@ def parse_file(file_path: Path, file_extension: str) -> ParsedDocument:
         return parse_csv_file(file_path)
     if normalized_extension in PDF_EXTENSIONS:
         return parse_pdf_file(file_path)
+    if normalized_extension in DOCX_EXTENSIONS:
+        return parse_docx_file(file_path)
 
     raise UnsupportedDocumentTypeError(f"Parsing is not supported for {file_extension} files yet")
 
@@ -121,6 +125,54 @@ def parse_pdf_file(file_path: Path) -> ParsedDocument:
         raise EmptyParsedDocumentError("No extractable text found in PDF")
 
     return ParsedDocument(sections=sections)
+
+
+def parse_docx_file(file_path: Path) -> ParsedDocument:
+    try:
+        document = DocxDocument(file_path)
+    except Exception as error:
+        raise UnreadableDocumentError("DOCX file could not be read") from error
+
+    paragraphs = [
+        normalize_text(paragraph.text)
+        for paragraph in document.paragraphs
+        if normalize_text(paragraph.text)
+    ]
+    table_rows = extract_docx_table_rows(document)
+    text_parts = paragraphs + table_rows
+    text = "\n\n".join(text_parts)
+
+    if not text:
+        raise EmptyParsedDocumentError("No extractable text found in DOCX file")
+
+    return ParsedDocument(
+        sections=[
+            ParsedDocumentSection(
+                kind="text",
+                label="Word document",
+                text=text,
+                metadata={
+                    "parser": "python-docx",
+                    "paragraph_count": len(paragraphs),
+                    "table_count": len(document.tables),
+                    "table_row_count": len(table_rows),
+                },
+            )
+        ]
+    )
+
+
+def extract_docx_table_rows(document) -> list[str]:
+    rows: list[str] = []
+
+    for table_index, table in enumerate(document.tables, start=1):
+        for row_index, row in enumerate(table.rows, start=1):
+            cells = [normalize_text(cell.text) for cell in row.cells]
+            row_text = " | ".join(cell for cell in cells if cell)
+            if row_text:
+                rows.append(f"Table {table_index}, row {row_index}: {row_text}")
+
+    return rows
 
 
 def normalize_text(text: str) -> str:

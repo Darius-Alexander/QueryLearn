@@ -1,4 +1,5 @@
 fastapi
 pypdf
+python-docx
 python-multipart
 uvicorn[standard]
