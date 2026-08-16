@@ -1,7 +1,9 @@
 import csv
+from datetime import date, datetime, time
 from pathlib import Path
 
 from docx import Document as DocxDocument
+from openpyxl import load_workbook
 from pypdf import PdfReader
 
 from .models import ParsedDocument, ParsedDocumentSection
@@ -11,6 +13,7 @@ TEXT_EXTENSIONS = {".md", ".txt"}
 CSV_EXTENSIONS = {".csv"}
 PDF_EXTENSIONS = {".pdf"}
 DOCX_EXTENSIONS = {".docx"}
+XLSX_EXTENSIONS = {".xlsx"}
 
 
 class UnsupportedDocumentTypeError(ValueError):
@@ -35,6 +38,8 @@ def parse_file(file_path: Path, file_extension: str) -> ParsedDocument:
         return parse_pdf_file(file_path)
     if normalized_extension in DOCX_EXTENSIONS:
         return parse_docx_file(file_path)
+    if normalized_extension in XLSX_EXTENSIONS:
+        return parse_xlsx_file(file_path)
 
     raise UnsupportedDocumentTypeError(f"Parsing is not supported for {file_extension} files yet")
 
@@ -173,6 +178,78 @@ def extract_docx_table_rows(document) -> list[str]:
                 rows.append(f"Table {table_index}, row {row_index}: {row_text}")
 
     return rows
+
+
+def parse_xlsx_file(file_path: Path) -> ParsedDocument:
+    try:
+        workbook = load_workbook(file_path, read_only=True, data_only=True)
+    except Exception as error:
+        raise UnreadableDocumentError("XLSX file could not be read") from error
+
+    sections: list[ParsedDocumentSection] = []
+    for sheet in workbook.worksheets:
+        rows = extract_xlsx_rows(sheet)
+        if not rows:
+            continue
+
+        row_count = len(rows)
+        column_count = max((len(row) for row in rows), default=0)
+        sections.append(
+            ParsedDocumentSection(
+                kind="sheet",
+                label=f"Sheet: {sheet.title}",
+                text=format_xlsx_rows(rows),
+                metadata={
+                    "parser": "openpyxl",
+                    "sheet_name": sheet.title,
+                    "row_count": row_count,
+                    "column_count": column_count,
+                },
+            )
+        )
+
+    workbook.close()
+
+    if not sections:
+        raise EmptyParsedDocumentError("No extractable text found in XLSX file")
+
+    return ParsedDocument(sections=sections)
+
+
+def extract_xlsx_rows(sheet) -> list[list[str]]:
+    rows: list[list[str]] = []
+
+    for row in sheet.iter_rows(values_only=True):
+        formatted_cells = [format_cell_value(value) for value in row]
+        while formatted_cells and not formatted_cells[-1]:
+            formatted_cells.pop()
+
+        if any(formatted_cells):
+            rows.append(formatted_cells)
+
+    return rows
+
+
+def format_xlsx_rows(rows: list[list[str]]) -> str:
+    return "\n".join(
+        f"Row {row_index}: {format_xlsx_row(row)}"
+        for row_index, row in enumerate(rows, start=1)
+    ).strip()
+
+
+def format_xlsx_row(row: list[str]) -> str:
+    return " | ".join(row)
+
+
+def format_cell_value(value: object) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, datetime):
+        return value.isoformat(sep=" ")
+    if isinstance(value, (date, time)):
+        return value.isoformat()
+
+    return normalize_text(str(value))
 
 
 def normalize_text(text: str) -> str:

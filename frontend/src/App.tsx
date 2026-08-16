@@ -340,7 +340,7 @@ function App() {
         );
       })
       .catch(() => {
-        setDocumentError("Could not parse document. Only .txt, .md, .csv, .docx, and text-based .pdf files are supported right now.");
+        setDocumentError("Could not parse document. Only .txt, .md, .csv, .docx, .xlsx, and text-based .pdf files are supported right now.");
       })
       .finally(() => {
         setParsingDocumentId("");

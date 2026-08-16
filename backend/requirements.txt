@@ -1,4 +1,5 @@
 fastapi
+openpyxl
 pypdf
 python-docx
 python-multipart
