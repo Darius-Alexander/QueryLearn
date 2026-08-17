@@ -3,4 +3,5 @@ openpyxl
 pypdf
 python-docx
 python-multipart
+python-pptx
 uvicorn[standard]

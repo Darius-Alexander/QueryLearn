@@ -4,6 +4,7 @@ from pathlib import Path
 
 from docx import Document as DocxDocument
 from openpyxl import load_workbook
+from pptx import Presentation
 from pypdf import PdfReader
 
 from .models import ParsedDocument, ParsedDocumentSection
@@ -14,6 +15,7 @@ CSV_EXTENSIONS = {".csv"}
 PDF_EXTENSIONS = {".pdf"}
 DOCX_EXTENSIONS = {".docx"}
 XLSX_EXTENSIONS = {".xlsx"}
+PPTX_EXTENSIONS = {".pptx"}
 
 
 class UnsupportedDocumentTypeError(ValueError):
@@ -40,6 +42,8 @@ def parse_file(file_path: Path, file_extension: str) -> ParsedDocument:
         return parse_docx_file(file_path)
     if normalized_extension in XLSX_EXTENSIONS:
         return parse_xlsx_file(file_path)
+    if normalized_extension in PPTX_EXTENSIONS:
+        return parse_pptx_file(file_path)
 
     raise UnsupportedDocumentTypeError(f"Parsing is not supported for {file_extension} files yet")
 
@@ -250,6 +254,67 @@ def format_cell_value(value: object) -> str:
         return value.isoformat()
 
     return normalize_text(str(value))
+
+
+def parse_pptx_file(file_path: Path) -> ParsedDocument:
+    try:
+        presentation = Presentation(file_path)
+    except Exception as error:
+        raise UnreadableDocumentError("PPTX file could not be read") from error
+
+    slide_count = len(presentation.slides)
+    sections: list[ParsedDocumentSection] = []
+
+    for slide_index, slide in enumerate(presentation.slides, start=1):
+        text_items = extract_pptx_slide_text(slide)
+        if not text_items:
+            continue
+
+        sections.append(
+            ParsedDocumentSection(
+                kind="slide",
+                label=f"Slide {slide_index}",
+                text="\n\n".join(text_items),
+                metadata={
+                    "parser": "python-pptx",
+                    "slide_number": slide_index,
+                    "slide_count": slide_count,
+                    "text_item_count": len(text_items),
+                },
+            )
+        )
+
+    if not sections:
+        raise EmptyParsedDocumentError("No extractable text found in PPTX file")
+
+    return ParsedDocument(sections=sections)
+
+
+def extract_pptx_slide_text(slide) -> list[str]:
+    text_items: list[str] = []
+
+    for shape in slide.shapes:
+        if getattr(shape, "has_text_frame", False):
+            text = normalize_text(shape.text)
+            if text:
+                text_items.append(text)
+
+        if getattr(shape, "has_table", False):
+            text_items.extend(format_pptx_table_rows(shape.table))
+
+    return text_items
+
+
+def format_pptx_table_rows(table) -> list[str]:
+    rows: list[str] = []
+
+    for row_index, row in enumerate(table.rows, start=1):
+        cells = [normalize_text(cell.text) for cell in row.cells]
+        row_text = " | ".join(cell for cell in cells if cell)
+        if row_text:
+            rows.append(f"Table row {row_index}: {row_text}")
+
+    return rows
 
 
 def normalize_text(text: str) -> str:
