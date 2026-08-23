@@ -37,6 +37,7 @@ type SourceDocument = {
   status: string;
   created_at: string;
   updated_at: string;
+  parsed_section_count: number;
   error: string | null;
 };
 
@@ -49,6 +50,10 @@ type ParsedSection = {
   text: string;
   metadata: Record<string, unknown>;
   created_at: string;
+};
+
+type ErrorResponse = {
+  detail?: string;
 };
 
 function App() {
@@ -307,44 +312,50 @@ function App() {
     setSectionError("");
   }
 
-  function handleParseDocument(documentId: string) {
+  async function refreshDocument(documentId: string) {
+    const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}`);
+    if (!response.ok) {
+      throw new Error("Could not refresh document");
+    }
+
+    const updatedDocument = (await response.json()) as SourceDocument;
+    setDocuments((currentDocuments) =>
+      currentDocuments.map((document) =>
+        document.id === updatedDocument.id ? updatedDocument : document,
+      ),
+    );
+
+    return updatedDocument;
+  }
+
+  async function handleParseDocument(documentId: string) {
     setDocumentError("");
     setSectionError("");
     setParsingDocumentId(documentId);
 
-    fetch(`${API_BASE_URL}/api/documents/${documentId}/parse`, {
-      method: "POST",
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Could not parse document");
-        }
-        return response.json();
-      })
-      .then((sections: ParsedSection[]) => {
-        setParsedSections(sections);
-        setSelectedDocumentId(documentId);
-        return fetch(`${API_BASE_URL}/api/documents/${documentId}`);
-      })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Could not refresh document");
-        }
-        return response.json();
-      })
-      .then((updatedDocument: SourceDocument) => {
-        setDocuments((currentDocuments) =>
-          currentDocuments.map((document) =>
-            document.id === updatedDocument.id ? updatedDocument : document,
-          ),
-        );
-      })
-      .catch(() => {
-        setDocumentError("Could not parse document. Only .txt, .md, .csv, .docx, .xlsx, .pptx, and text-based .pdf files are supported right now.");
-      })
-      .finally(() => {
-        setParsingDocumentId("");
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/parse`, {
+        method: "POST",
       });
+
+      if (!response.ok) {
+        const message = await readErrorDetail(
+          response,
+          "Could not parse document. Only .txt, .md, .csv, .docx, .xlsx, .pptx, and text-based .pdf files are supported right now.",
+        );
+        await refreshDocument(documentId).catch(() => undefined);
+        throw new Error(message);
+      }
+
+      const sections = (await response.json()) as ParsedSection[];
+      setParsedSections(sections);
+      setSelectedDocumentId(documentId);
+      await refreshDocument(documentId);
+    } catch (error) {
+      setDocumentError(error instanceof Error ? error.message : "Could not parse document.");
+    } finally {
+      setParsingDocumentId("");
+    }
   }
 
   function handleCreateChat(event: FormEvent<HTMLFormElement>) {
@@ -538,9 +549,11 @@ function App() {
               >
                 <strong>{document.original_filename}</strong>{" "}
                 <span>
-                  {document.status} - {document.file_extension} - {formatFileSize(document.file_size)}
+                  {document.status} - {formatParsedSectionCount(document.parsed_section_count)} -{" "}
+                  {document.file_extension} - {formatFileSize(document.file_size)}
                   {document.id === selectedDocumentId ? " - selected" : ""}
                 </span>
+                {document.error && <span className="document-error">Error: {document.error}</span>}
               </button>
               <button
                 type="button"
@@ -614,6 +627,23 @@ function formatFileSize(bytes: number) {
   }
 
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatParsedSectionCount(count: number) {
+  return count === 1 ? "1 section" : `${count} sections`;
+}
+
+async function readErrorDetail(response: Response, fallbackMessage: string) {
+  try {
+    const data = (await response.json()) as ErrorResponse;
+    if (typeof data.detail === "string" && data.detail.trim()) {
+      return data.detail;
+    }
+  } catch {
+    return fallbackMessage;
+  }
+
+  return fallbackMessage;
 }
 
 export default App;

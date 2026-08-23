@@ -44,6 +44,7 @@ class Document(BaseModel):
     status: str
     created_at: str
     updated_at: str
+    parsed_section_count: int
     error: str | None = None
 
 

@@ -1,22 +1,25 @@
 # QueryLearn
 
-QueryLearn is a local-first RAG learning platform for chatting with course materials. Students will organize work by course, upload learning materials, and ask questions answered with source-grounded citations.
+QueryLearn is a local-first RAG learning platform for students. It lets students organize materials by course, upload course documents, parse them into searchable source sections, and build toward source-grounded AI answers with citations.
 
-## Status
+## Current Status
 
-The project currently has a minimal local chat foundation:
+QueryLearn currently includes:
 
-- FastAPI backend
-- SQLite persistence for courses, chats, and messages
-- Vite + React frontend
-- Local frontend-to-backend API connection
+- FastAPI backend with SQLite persistence
+- Vite + React + TypeScript frontend
+- Course, chat, message, document, and parsed-section data models
+- Course creation and local chat/message storage
+- Document upload and metadata storage
+- Manual document parsing with parsed text previews
+- Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
-RAG ingestion, document parsing, retrieval, citations, and AI responses are planned next.
+Retrieval, embeddings, citations in answers, streaming AI responses, and evals are planned next.
 
 ## Tech Stack
 
-- Backend: FastAPI
-- Database: SQLite
+- Backend: FastAPI, Pydantic, SQLite
+- Parsing: pypdf, python-docx, openpyxl, python-pptx
 - Frontend: Vite, React, TypeScript
 
 ## Backend Setup
@@ -60,19 +63,33 @@ Frontend app:
 http://127.0.0.1:5173
 ```
 
+## Local Data
+
+QueryLearn stores local runtime data under `backend/data/`, including the SQLite database and uploaded files. This folder is ignored by Git.
+
 ## Project Structure
 
 ```text
 backend/
   app/
+    parsing/
+      models.py
+      parsers.py
+      service.py
     routes/
+      chats.py
+      courses.py
+      documents.py
     db.py
     main.py
     models.py
   requirements.txt
 
 frontend/
+  public/
   src/
+    App.tsx
+    main.tsx
   package.json
   vite.config.ts
 ```

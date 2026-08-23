@@ -127,6 +127,7 @@ def document_from_row(row) -> Document:
         error=row["error"],
         created_at=row["created_at"],
         updated_at=row["updated_at"],
+        parsed_section_count=row["parsed_section_count"],
     )
 
 

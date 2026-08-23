@@ -159,6 +159,27 @@ def reset_empty_legacy_documents_table(connection: sqlite3.Connection) -> None:
     connection.execute("DROP TABLE documents")
 
 
+DOCUMENT_SELECT_COLUMNS = """
+                documents.id,
+                documents.course_id,
+                documents.original_filename,
+                documents.stored_filename,
+                documents.content_type,
+                documents.file_extension,
+                documents.file_size,
+                documents.storage_path,
+                documents.status,
+                documents.error,
+                documents.created_at,
+                documents.updated_at,
+                (
+                    SELECT COUNT(*)
+                    FROM parsed_sections
+                    WHERE parsed_sections.document_id = documents.id
+                ) AS parsed_section_count
+"""
+
+
 def list_courses() -> list[sqlite3.Row]:
     with get_connection() as connection:
         return connection.execute("SELECT id, name FROM courses ORDER BY name").fetchall()
@@ -256,20 +277,9 @@ def create_course(name: str) -> sqlite3.Row:
 def list_documents_for_course(course_id: str) -> list[sqlite3.Row]:
     with get_connection() as connection:
         return connection.execute(
-            """
+            f"""
             SELECT
-                id,
-                course_id,
-                original_filename,
-                stored_filename,
-                content_type,
-                file_extension,
-                file_size,
-                storage_path,
-                status,
-                error,
-                created_at,
-                updated_at
+{DOCUMENT_SELECT_COLUMNS}
             FROM documents
             WHERE course_id = ?
             ORDER BY created_at DESC, original_filename
@@ -281,20 +291,9 @@ def list_documents_for_course(course_id: str) -> list[sqlite3.Row]:
 def get_document(document_id: str) -> sqlite3.Row | None:
     with get_connection() as connection:
         return connection.execute(
-            """
+            f"""
             SELECT
-                id,
-                course_id,
-                original_filename,
-                stored_filename,
-                content_type,
-                file_extension,
-                file_size,
-                storage_path,
-                status,
-                error,
-                created_at,
-                updated_at
+{DOCUMENT_SELECT_COLUMNS}
             FROM documents
             WHERE id = ?
             """,
@@ -347,20 +346,9 @@ def create_document(
             ),
         )
         return connection.execute(
-            """
+            f"""
             SELECT
-                id,
-                course_id,
-                original_filename,
-                stored_filename,
-                content_type,
-                file_extension,
-                file_size,
-                storage_path,
-                status,
-                error,
-                created_at,
-                updated_at
+{DOCUMENT_SELECT_COLUMNS}
             FROM documents
             WHERE id = ?
             """,
@@ -381,20 +369,9 @@ def update_document_status(document_id: str, status: str, error: str | None = No
             (status, error, updated_at, document_id),
         )
         return connection.execute(
-            """
+            f"""
             SELECT
-                id,
-                course_id,
-                original_filename,
-                stored_filename,
-                content_type,
-                file_extension,
-                file_size,
-                storage_path,
-                status,
-                error,
-                created_at,
-                updated_at
+{DOCUMENT_SELECT_COLUMNS}
             FROM documents
             WHERE id = ?
             """,

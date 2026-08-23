@@ -111,6 +111,11 @@ li span {
   font-size: 14px;
 }
 
+.document-error {
+  display: block;
+  color: var(--danger);
+}
+
 strong {
   color: var(--text-h);
 }
