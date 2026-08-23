@@ -91,6 +91,33 @@ def init_db() -> None:
             )
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chunks (
+                id TEXT PRIMARY KEY,
+                document_id TEXT NOT NULL,
+                parsed_section_id TEXT NOT NULL,
+                chunk_index INTEGER NOT NULL,
+                text TEXT NOT NULL,
+                metadata_json TEXT,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (document_id) REFERENCES documents(id) ON DELETE CASCADE,
+                FOREIGN KEY (parsed_section_id) REFERENCES parsed_sections(id) ON DELETE CASCADE
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chunks_document_id_chunk_index
+            ON chunks (document_id, chunk_index)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_chunks_parsed_section_id
+            ON chunks (parsed_section_id)
+            """
+        )
         seed_courses(connection)
         seed_chats(connection)
 
@@ -176,7 +203,12 @@ DOCUMENT_SELECT_COLUMNS = """
                     SELECT COUNT(*)
                     FROM parsed_sections
                     WHERE parsed_sections.document_id = documents.id
-                ) AS parsed_section_count
+                ) AS parsed_section_count,
+                (
+                    SELECT COUNT(*)
+                    FROM chunks
+                    WHERE chunks.document_id = documents.id
+                ) AS chunk_count
 """
 
 
@@ -444,6 +476,73 @@ def list_parsed_sections_for_document_with_connection(
         FROM parsed_sections
         WHERE document_id = ?
         ORDER BY section_index
+        """,
+        (document_id,),
+    ).fetchall()
+
+
+def replace_chunks(
+    document_id: str,
+    chunks: list[dict[str, object]],
+) -> list[sqlite3.Row]:
+    created_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            "DELETE FROM chunks WHERE document_id = ?",
+            (document_id,),
+        )
+        connection.executemany(
+            """
+            INSERT INTO chunks (
+                id,
+                document_id,
+                parsed_section_id,
+                chunk_index,
+                text,
+                metadata_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    str(uuid.uuid4()),
+                    document_id,
+                    chunk["parsed_section_id"],
+                    chunk["chunk_index"],
+                    chunk["text"],
+                    json.dumps(chunk.get("metadata", {}), sort_keys=True),
+                    created_at,
+                )
+                for chunk in chunks
+            ],
+        )
+        return list_chunks_for_document_with_connection(connection, document_id)
+
+
+def list_chunks_for_document(document_id: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return list_chunks_for_document_with_connection(connection, document_id)
+
+
+def list_chunks_for_document_with_connection(
+    connection: sqlite3.Connection,
+    document_id: str,
+) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            id,
+            document_id,
+            parsed_section_id,
+            chunk_index,
+            text,
+            metadata_json,
+            created_at
+        FROM chunks
+        WHERE document_id = ?
+        ORDER BY chunk_index, id
         """,
         (document_id,),
     ).fetchall()

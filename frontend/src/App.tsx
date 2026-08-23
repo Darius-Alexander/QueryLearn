@@ -38,6 +38,7 @@ type SourceDocument = {
   created_at: string;
   updated_at: string;
   parsed_section_count: number;
+  chunk_count: number;
   error: string | null;
 };
 

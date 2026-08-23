@@ -128,6 +128,7 @@ def document_from_row(row) -> Document:
         created_at=row["created_at"],
         updated_at=row["updated_at"],
         parsed_section_count=row["parsed_section_count"],
+        chunk_count=row["chunk_count"],
     )
 
 

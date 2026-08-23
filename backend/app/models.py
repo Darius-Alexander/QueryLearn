@@ -45,6 +45,7 @@ class Document(BaseModel):
     created_at: str
     updated_at: str
     parsed_section_count: int
+    chunk_count: int
     error: str | None = None
 
 
@@ -54,6 +55,16 @@ class ParsedSection(BaseModel):
     section_index: int
     kind: str
     label: str
+    text: str
+    metadata: dict[str, object]
+    created_at: str
+
+
+class Chunk(BaseModel):
+    id: str
+    document_id: str
+    parsed_section_id: str
+    chunk_index: int
     text: str
     metadata: dict[str, object]
     created_at: str
