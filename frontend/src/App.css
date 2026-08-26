@@ -120,7 +120,8 @@ strong {
   color: var(--text-h);
 }
 
-.section-preview {
+.section-preview,
+.chunk-preview {
   display: grid;
   gap: 12px;
 }

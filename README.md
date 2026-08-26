@@ -1,6 +1,6 @@
 # QueryLearn
 
-QueryLearn is a local-first RAG learning platform for students. It lets students organize materials by course, upload course documents, parse them into searchable source sections, and build toward source-grounded AI answers with citations.
+QueryLearn is a local-first RAG learning platform for students. It lets students organize materials by course, upload course documents, parse them into searchable source sections and retrieval-ready chunks, and build toward source-grounded AI answers with citations.
 
 ## Current Status
 
@@ -8,13 +8,14 @@ QueryLearn currently includes:
 
 - FastAPI backend with SQLite persistence
 - Vite + React + TypeScript frontend
-- Course, chat, message, document, and parsed-section data models
+- Course, chat, message, document, parsed-section, and chunk data models
 - Course creation and local chat/message storage
 - Document upload and metadata storage
 - Manual document parsing with parsed text previews
+- Manual chunking with chunk previews
 - Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
-Retrieval, embeddings, citations in answers, streaming AI responses, and evals are planned next.
+Indexing, retrieval, embeddings, citations in answers, streaming AI responses, and evals are planned next.
 
 ## Tech Stack
 
@@ -72,6 +73,10 @@ QueryLearn stores local runtime data under `backend/data/`, including the SQLite
 ```text
 backend/
   app/
+    chunking/
+      chunkers.py
+      models.py
+      service.py
     parsing/
       models.py
       parsers.py
