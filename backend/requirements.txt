@@ -1,7 +1,9 @@
 fastapi
 openpyxl
+openai
 pypdf
 python-docx
+python-dotenv
 python-multipart
 python-pptx
 uvicorn[standard]
