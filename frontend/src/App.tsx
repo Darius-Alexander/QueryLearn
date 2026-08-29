@@ -39,6 +39,7 @@ type SourceDocument = {
   updated_at: string;
   parsed_section_count: number;
   chunk_count: number;
+  indexed_chunk_count: number;
   error: string | null;
 };
 
@@ -63,6 +64,13 @@ type Chunk = {
   created_at: string;
 };
 
+type DocumentIndexResult = {
+  document_id: string;
+  indexed_chunk_count: number;
+  embedding_model: string;
+  embedding_dimension: number;
+};
+
 type ErrorResponse = {
   detail?: string;
 };
@@ -78,6 +86,8 @@ function App() {
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [chunkError, setChunkError] = useState("");
   const [chunkingDocumentId, setChunkingDocumentId] = useState("");
+  const [indexError, setIndexError] = useState("");
+  const [indexingDocumentId, setIndexingDocumentId] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
   const [documentError, setDocumentError] = useState("");
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
@@ -287,6 +297,7 @@ function App() {
     setDocumentError("");
     setSectionError("");
     setChunkError("");
+    setIndexError("");
     setMessageError("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -332,6 +343,7 @@ function App() {
         setSelectedDocumentId(createdDocument.id);
         setParsedSections([]);
         setChunks([]);
+        setIndexError("");
         setSelectedDocumentFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
@@ -351,6 +363,7 @@ function App() {
     setChunks([]);
     setSectionError("");
     setChunkError("");
+    setIndexError("");
   }
 
   async function refreshDocument(documentId: string) {
@@ -373,6 +386,7 @@ function App() {
     setDocumentError("");
     setSectionError("");
     setChunkError("");
+    setIndexError("");
     setParsingDocumentId(documentId);
 
     try {
@@ -392,6 +406,7 @@ function App() {
       const sections = (await response.json()) as ParsedSection[];
       setParsedSections(sections);
       setChunks([]);
+      setIndexError("");
       setSelectedDocumentId(documentId);
       await refreshDocument(documentId);
     } catch (error) {
@@ -404,6 +419,7 @@ function App() {
   async function handleChunkDocument(documentId: string) {
     setDocumentError("");
     setChunkError("");
+    setIndexError("");
     setChunkingDocumentId(documentId);
 
     try {
@@ -421,12 +437,41 @@ function App() {
 
       const createdChunks = (await response.json()) as Chunk[];
       setChunks(createdChunks);
+      setIndexError("");
       setSelectedDocumentId(documentId);
       await refreshDocument(documentId);
     } catch (error) {
       setChunkError(error instanceof Error ? error.message : "Could not chunk document.");
     } finally {
       setChunkingDocumentId("");
+    }
+  }
+
+  async function handleIndexDocument(documentId: string) {
+    setDocumentError("");
+    setIndexError("");
+    setIndexingDocumentId(documentId);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/index`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const message = await readErrorDetail(
+          response,
+          "Could not index document. Chunk the document before indexing.",
+        );
+        throw new Error(message);
+      }
+
+      await response.json() as DocumentIndexResult;
+      setSelectedDocumentId(documentId);
+      await refreshDocument(documentId);
+    } catch (error) {
+      setIndexError(error instanceof Error ? error.message : "Could not index document.");
+    } finally {
+      setIndexingDocumentId("");
     }
   }
 
@@ -623,6 +668,7 @@ function App() {
                 <span>
                   {document.status} - {formatParsedSectionCount(document.parsed_section_count)} -{" "}
                   {formatChunkCount(document.chunk_count)} -{" "}
+                  {formatIndexedChunkCount(document.indexed_chunk_count)} -{" "}
                   {document.file_extension} - {formatFileSize(document.file_size)}
                   {document.id === selectedDocumentId ? " - selected" : ""}
                 </span>
@@ -641,6 +687,13 @@ function App() {
                 disabled={document.parsed_section_count === 0 || chunkingDocumentId === document.id}
               >
                 {chunkingDocumentId === document.id ? "Chunking..." : "Chunk"}
+              </button>
+              <button
+                type="button"
+                onClick={() => handleIndexDocument(document.id)}
+                disabled={document.chunk_count === 0 || indexingDocumentId === document.id}
+              >
+                {indexingDocumentId === document.id ? "Indexing..." : "Index"}
               </button>
             </li>
           ))}
@@ -665,6 +718,7 @@ function App() {
           </div>
         )}
         {chunkError && <p>{chunkError}</p>}
+        {indexError && <p>{indexError}</p>}
         {selectedDocumentId && chunks.length === 0 && !chunkError && (
           <p>No chunks for this document yet.</p>
         )}
@@ -732,6 +786,10 @@ function formatParsedSectionCount(count: number) {
 
 function formatChunkCount(count: number) {
   return count === 1 ? "1 chunk" : `${count} chunks`;
+}
+
+function formatIndexedChunkCount(count: number) {
+  return count === 1 ? "1 indexed chunk" : `${count} indexed chunks`;
 }
 
 async function readErrorDetail(response: Response, fallbackMessage: string) {

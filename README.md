@@ -1,6 +1,6 @@
 # QueryLearn
 
-QueryLearn is a local-first RAG learning platform for students. It lets students organize materials by course, upload course documents, parse them into searchable source sections and retrieval-ready chunks, and build toward source-grounded AI answers with citations.
+QueryLearn is a local-first RAG learning platform for students. It lets students organize materials by course, upload course documents, parse them into searchable source sections, prepare retrieval-ready chunks, and index those chunks for source-grounded AI answers with citations.
 
 ## Current Status
 
@@ -8,19 +8,21 @@ QueryLearn currently includes:
 
 - FastAPI backend with SQLite persistence
 - Vite + React + TypeScript frontend
-- Course, chat, message, document, parsed-section, and chunk data models
+- Course, chat, message, document, parsed-section, chunk, and chunk-embedding data models
 - Course creation and local chat/message storage
 - Document upload and metadata storage
 - Manual document parsing with parsed text previews
 - Manual chunking with chunk previews
+- Manual indexing with OpenAI embeddings
 - Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
-Indexing, retrieval, embeddings, citations in answers, streaming AI responses, and evals are planned next.
+Retrieval, citations in answers, streaming AI responses, and evals are planned next.
 
 ## Tech Stack
 
 - Backend: FastAPI, Pydantic, SQLite
 - Parsing: pypdf, python-docx, openpyxl, python-pptx
+- Indexing: OpenAI embeddings
 - Frontend: Vite, React, TypeScript
 
 ## Backend Setup
@@ -32,8 +34,11 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
+Copy-Item .env.example .env
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
+
+Set `OPENAI_API_KEY` in `backend/.env` before indexing documents.
 
 Backend health check:
 
@@ -75,6 +80,10 @@ backend/
   app/
     chunking/
       chunkers.py
+      models.py
+      service.py
+    indexing/
+      embeddings.py
       models.py
       service.py
     parsing/
