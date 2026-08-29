@@ -16,7 +16,14 @@ from ..db import get_course, get_document
 from ..db import list_chunks_for_document
 from ..db import list_parsed_sections_for_document
 from ..db import list_documents_for_course as list_documents_for_course_from_db
-from ..models import Chunk, Document, ParsedSection
+from ..indexing.embeddings import EmbeddingConfigurationError, EmbeddingGenerationError
+from ..indexing.service import (
+    EmbeddingCountMismatchError,
+    EmptyIndexedDocumentError,
+    NoChunksToIndexError,
+    index_document_chunks,
+)
+from ..models import Chunk, Document, DocumentIndexResult, ParsedSection
 from ..parsing.parsers import (
     EmptyParsedDocumentError,
     UnreadableDocumentError,
@@ -142,6 +149,36 @@ def list_document_chunks(document_id: str) -> list[Chunk]:
 
     rows = list_chunks_for_document(document_id)
     return [chunk_from_row(row) for row in rows]
+
+
+@router.post("/documents/{document_id}/index", status_code=201)
+def index_document(document_id: str) -> DocumentIndexResult:
+    if get_document(document_id) is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    try:
+        rows = index_document_chunks(document_id)
+    except NoChunksToIndexError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmptyIndexedDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmbeddingCountMismatchError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except EmbeddingConfigurationError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except EmbeddingGenerationError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+    if not rows:
+        raise HTTPException(status_code=500, detail="No embeddings were stored")
+
+    first_row = rows[0]
+    return DocumentIndexResult(
+        document_id=document_id,
+        indexed_chunk_count=len(rows),
+        embedding_model=first_row["embedding_model"],
+        embedding_dimension=first_row["embedding_dimension"],
+    )
 
 
 def document_from_row(row) -> Document:

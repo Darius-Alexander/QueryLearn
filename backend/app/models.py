@@ -77,3 +77,10 @@ class ChunkEmbedding(BaseModel):
     embedding_model: str
     embedding_dimension: int
     created_at: str
+
+
+class DocumentIndexResult(BaseModel):
+    document_id: str
+    indexed_chunk_count: int
+    embedding_model: str
+    embedding_dimension: int
