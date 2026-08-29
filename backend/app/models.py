@@ -46,6 +46,7 @@ class Document(BaseModel):
     updated_at: str
     parsed_section_count: int
     chunk_count: int
+    indexed_chunk_count: int
     error: str | None = None
 
 
@@ -67,4 +68,12 @@ class Chunk(BaseModel):
     chunk_index: int
     text: str
     metadata: dict[str, object]
+    created_at: str
+
+
+class ChunkEmbedding(BaseModel):
+    id: str
+    chunk_id: str
+    embedding_model: str
+    embedding_dimension: int
     created_at: str

@@ -118,6 +118,31 @@ def init_db() -> None:
             ON chunks (parsed_section_id)
             """
         )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS chunk_embeddings (
+                id TEXT PRIMARY KEY,
+                chunk_id TEXT NOT NULL,
+                embedding_model TEXT NOT NULL,
+                embedding_dimension INTEGER NOT NULL,
+                embedding_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                FOREIGN KEY (chunk_id) REFERENCES chunks(id) ON DELETE CASCADE
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_chunk_embeddings_chunk_id_model
+            ON chunk_embeddings (chunk_id, embedding_model)
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_chunk_embeddings_chunk_id
+            ON chunk_embeddings (chunk_id)
+            """
+        )
         seed_courses(connection)
         seed_chats(connection)
 
@@ -208,7 +233,13 @@ DOCUMENT_SELECT_COLUMNS = """
                     SELECT COUNT(*)
                     FROM chunks
                     WHERE chunks.document_id = documents.id
-                ) AS chunk_count
+                ) AS chunk_count,
+                (
+                    SELECT COUNT(DISTINCT chunk_embeddings.chunk_id)
+                    FROM chunk_embeddings
+                    JOIN chunks ON chunks.id = chunk_embeddings.chunk_id
+                    WHERE chunks.document_id = documents.id
+                ) AS indexed_chunk_count
 """
 
 
@@ -543,6 +574,78 @@ def list_chunks_for_document_with_connection(
         FROM chunks
         WHERE document_id = ?
         ORDER BY chunk_index, id
+        """,
+        (document_id,),
+    ).fetchall()
+
+
+def replace_chunk_embeddings(
+    document_id: str,
+    embeddings: list[dict[str, object]],
+) -> list[sqlite3.Row]:
+    created_at = now_iso()
+
+    with get_connection() as connection:
+        connection.execute(
+            """
+            DELETE FROM chunk_embeddings
+            WHERE chunk_id IN (
+                SELECT id
+                FROM chunks
+                WHERE document_id = ?
+            )
+            """,
+            (document_id,),
+        )
+        connection.executemany(
+            """
+            INSERT INTO chunk_embeddings (
+                id,
+                chunk_id,
+                embedding_model,
+                embedding_dimension,
+                embedding_json,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    str(uuid.uuid4()),
+                    embedding["chunk_id"],
+                    embedding["embedding_model"],
+                    embedding["embedding_dimension"],
+                    json.dumps(embedding["embedding"], separators=(",", ":")),
+                    created_at,
+                )
+                for embedding in embeddings
+            ],
+        )
+        return list_chunk_embeddings_for_document_with_connection(connection, document_id)
+
+
+def list_chunk_embeddings_for_document(document_id: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return list_chunk_embeddings_for_document_with_connection(connection, document_id)
+
+
+def list_chunk_embeddings_for_document_with_connection(
+    connection: sqlite3.Connection,
+    document_id: str,
+) -> list[sqlite3.Row]:
+    return connection.execute(
+        """
+        SELECT
+            chunk_embeddings.id,
+            chunk_embeddings.chunk_id,
+            chunk_embeddings.embedding_model,
+            chunk_embeddings.embedding_dimension,
+            chunk_embeddings.embedding_json,
+            chunk_embeddings.created_at
+        FROM chunk_embeddings
+        JOIN chunks ON chunks.id = chunk_embeddings.chunk_id
+        WHERE chunks.document_id = ?
+        ORDER BY chunks.chunk_index, chunk_embeddings.embedding_model
         """,
         (document_id,),
     ).fetchall()

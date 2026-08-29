@@ -159,6 +159,7 @@ def document_from_row(row) -> Document:
         updated_at=row["updated_at"],
         parsed_section_count=row["parsed_section_count"],
         chunk_count=row["chunk_count"],
+        indexed_chunk_count=row["indexed_chunk_count"],
     )
 
 
