@@ -84,3 +84,24 @@ class DocumentIndexResult(BaseModel):
     indexed_chunk_count: int
     embedding_model: str
     embedding_dimension: int
+
+
+class RetrievalRequest(BaseModel):
+    question: str
+    limit: int = 5
+
+
+class RetrievedChunk(BaseModel):
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    chunk_index: int
+    score: float
+    text: str
+    metadata: dict[str, object]
+
+
+class RetrievalResponse(BaseModel):
+    course_id: str
+    question: str
+    results: list[RetrievedChunk]
