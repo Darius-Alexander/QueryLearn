@@ -651,6 +651,36 @@ def list_chunk_embeddings_for_document_with_connection(
     ).fetchall()
 
 
+def list_indexed_chunks_for_course(course_id: str, embedding_model: str) -> list[sqlite3.Row]:
+    with get_connection() as connection:
+        return connection.execute(
+            """
+            SELECT
+                chunks.id AS chunk_id,
+                chunks.document_id,
+                chunks.parsed_section_id,
+                chunks.chunk_index,
+                chunks.text,
+                chunks.metadata_json,
+                parsed_sections.section_index AS parsed_section_index,
+                parsed_sections.kind AS parsed_section_kind,
+                parsed_sections.label AS parsed_section_label,
+                documents.original_filename AS document_filename,
+                chunk_embeddings.embedding_model,
+                chunk_embeddings.embedding_dimension,
+                chunk_embeddings.embedding_json
+            FROM chunk_embeddings
+            JOIN chunks ON chunks.id = chunk_embeddings.chunk_id
+            JOIN parsed_sections ON parsed_sections.id = chunks.parsed_section_id
+            JOIN documents ON documents.id = chunks.document_id
+            WHERE documents.course_id = ?
+                AND chunk_embeddings.embedding_model = ?
+            ORDER BY documents.created_at, documents.original_filename, chunks.chunk_index, chunks.id
+            """,
+            (course_id, embedding_model),
+        ).fetchall()
+
+
 def build_course_id(name: str) -> str:
     slug = re.sub(r"[^a-z0-9]+", "-", name.lower()).strip("-")
     if not slug:
