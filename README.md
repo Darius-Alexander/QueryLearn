@@ -14,15 +14,18 @@ QueryLearn currently includes:
 - Manual document parsing with parsed text previews
 - Manual chunking with chunk previews
 - Manual indexing with OpenAI embeddings
+- Course-scoped retrieval over indexed chunks
+- Retrieved source chunk previews with scores and source metadata
 - Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
-Retrieval, citations in answers, streaming AI responses, and evals are planned next.
+Grounded answer generation, citations in answers, streaming AI responses, and broader evals are planned next.
 
 ## Tech Stack
 
 - Backend: FastAPI, Pydantic, SQLite
 - Parsing: pypdf, python-docx, openpyxl, python-pptx
 - Indexing: OpenAI embeddings
+- Retrieval: brute-force cosine similarity over local SQLite embeddings
 - Frontend: Vite, React, TypeScript
 
 ## Backend Setup
@@ -34,11 +37,10 @@ cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-Copy-Item .env.example .env
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Set `OPENAI_API_KEY` in `backend/.env` before indexing documents.
+Create `backend/.env` and set `OPENAI_API_KEY` before indexing documents.
 
 Backend health check:
 
@@ -90,10 +92,14 @@ backend/
       models.py
       parsers.py
       service.py
+    retrieval/
+      models.py
+      service.py
     routes/
       chats.py
       courses.py
       documents.py
+      retrieval.py
     db.py
     main.py
     models.py

@@ -121,7 +121,8 @@ strong {
 }
 
 .section-preview,
-.chunk-preview {
+.chunk-preview,
+.retrieval-preview {
   display: grid;
   gap: 12px;
 }

@@ -71,6 +71,22 @@ type DocumentIndexResult = {
   embedding_dimension: number;
 };
 
+type RetrievedChunk = {
+  chunk_id: string;
+  document_id: string;
+  document_filename: string;
+  chunk_index: number;
+  score: number;
+  text: string;
+  metadata: Record<string, unknown>;
+};
+
+type RetrievalResponse = {
+  course_id: string;
+  question: string;
+  results: RetrievedChunk[];
+};
+
 type ErrorResponse = {
   detail?: string;
 };
@@ -92,6 +108,10 @@ function App() {
   const [documentError, setDocumentError] = useState("");
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
   const [parsingDocumentId, setParsingDocumentId] = useState("");
+  const [retrievalQuestion, setRetrievalQuestion] = useState("");
+  const [retrievalResults, setRetrievalResults] = useState<RetrievedChunk[]>([]);
+  const [retrievalError, setRetrievalError] = useState("");
+  const [isRetrieving, setIsRetrieving] = useState(false);
   const [chats, setChats] = useState<Chat[]>([]);
   const [selectedChatId, setSelectedChatId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
@@ -292,12 +312,15 @@ function App() {
     setParsedSections([]);
     setChunks([]);
     setSelectedDocumentFile(null);
+    setRetrievalQuestion("");
+    setRetrievalResults([]);
     setChats([]);
     setMessages([]);
     setDocumentError("");
     setSectionError("");
     setChunkError("");
     setIndexError("");
+    setRetrievalError("");
     setMessageError("");
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -472,6 +495,51 @@ function App() {
       setIndexError(error instanceof Error ? error.message : "Could not index document.");
     } finally {
       setIndexingDocumentId("");
+    }
+  }
+
+  async function handleRetrieveSources(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!selectedCourseId) {
+      setRetrievalError("Select a course before retrieving sources.");
+      return;
+    }
+
+    const question = retrievalQuestion.trim();
+    if (!question) {
+      setRetrievalError("Question is required.");
+      return;
+    }
+
+    setRetrievalError("");
+    setIsRetrieving(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/courses/${selectedCourseId}/retrieve`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question, limit: 5 }),
+      });
+
+      if (!response.ok) {
+        const message = await readErrorDetail(
+          response,
+          "Could not retrieve sources. Check that the course has indexed chunks.",
+        );
+        throw new Error(message);
+      }
+
+      const retrievalResponse = (await response.json()) as RetrievalResponse;
+      setRetrievalResults(retrievalResponse.results);
+      setRetrievalQuestion(retrievalResponse.question);
+    } catch (error) {
+      setRetrievalResults([]);
+      setRetrievalError(error instanceof Error ? error.message : "Could not retrieve sources.");
+    } finally {
+      setIsRetrieving(false);
     }
   }
 
@@ -738,6 +806,46 @@ function App() {
       </section>
 
       <section>
+        <h2>Retrieved Sources</h2>
+        <form onSubmit={handleRetrieveSources}>
+          <label htmlFor="retrieval-question">Question</label>
+          <input
+            id="retrieval-question"
+            type="text"
+            value={retrievalQuestion}
+            onChange={(event) => setRetrievalQuestion(event.target.value)}
+            placeholder="What is a scalar variable?"
+            disabled={!selectedCourseId || isRetrieving}
+          />
+          <button type="submit" disabled={!selectedCourseId || isRetrieving}>
+            {isRetrieving ? "Retrieving..." : "Retrieve sources"}
+          </button>
+        </form>
+        {retrievalError && <p>{retrievalError}</p>}
+        {!selectedCourseId && <p>Select a course to retrieve sources.</p>}
+        {selectedCourseId && retrievalResults.length === 0 && !retrievalError && (
+          <p>No retrieved sources yet.</p>
+        )}
+        {retrievalResults.length > 0 && (
+          <div className="retrieval-preview">
+            <h3>Top source chunks</h3>
+            <ul>
+              {retrievalResults.map((result) => (
+                <li key={result.chunk_id}>
+                  <strong>{result.document_filename}</strong>
+                  <span>
+                    {formatSourceLabel(result.metadata)} - Chunk {result.chunk_index + 1} - Score{" "}
+                    {formatRetrievalScore(result.score)}
+                  </span>
+                  <pre>{result.text}</pre>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
+
+      <section>
         <h2>Messages</h2>
         <form onSubmit={handleCreateMessage}>
           <label htmlFor="message-content">Message</label>
@@ -790,6 +898,34 @@ function formatChunkCount(count: number) {
 
 function formatIndexedChunkCount(count: number) {
   return count === 1 ? "1 indexed chunk" : `${count} indexed chunks`;
+}
+
+function formatRetrievalScore(score: number) {
+  return score.toFixed(3);
+}
+
+function formatSourceLabel(metadata: Record<string, unknown>) {
+  const pageNumber = metadata.page_number;
+  if (typeof pageNumber === "number") {
+    return `Page ${pageNumber}`;
+  }
+
+  const slideNumber = metadata.slide_number;
+  if (typeof slideNumber === "number") {
+    return `Slide ${slideNumber}`;
+  }
+
+  const sheetName = metadata.sheet_name;
+  if (typeof sheetName === "string" && sheetName.trim()) {
+    return `Sheet: ${sheetName}`;
+  }
+
+  const parsedSectionLabel = metadata.parsed_section_label;
+  if (typeof parsedSectionLabel === "string" && parsedSectionLabel.trim()) {
+    return parsedSectionLabel;
+  }
+
+  return "Source section";
 }
 
 async function readErrorDetail(response: Response, fallbackMessage: string) {
