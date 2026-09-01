@@ -19,6 +19,9 @@ class RetrievalSettings:
             raise ValueError("max_limit must be greater than or equal to default_limit")
 
 
+DEFAULT_RETRIEVAL_SETTINGS = RetrievalSettings()
+
+
 @dataclass(frozen=True)
 class IndexedChunk:
     chunk_id: str
