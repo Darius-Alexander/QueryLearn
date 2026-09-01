@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .db import init_db
-from .routes import chats, courses, documents
+from .routes import chats, courses, documents, retrieval
 
 app = FastAPI(title="QueryLearn API")
 
@@ -31,3 +31,4 @@ def health() -> dict[str, str]:
 app.include_router(courses.router, prefix="/api")
 app.include_router(chats.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
+app.include_router(retrieval.router, prefix="/api")
