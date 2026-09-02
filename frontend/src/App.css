@@ -30,7 +30,8 @@ label {
   font-weight: 600;
 }
 
-input {
+input,
+select {
   min-height: 40px;
   box-sizing: border-box;
   border: 1px solid var(--border);
@@ -43,6 +44,10 @@ input {
 
 input[type="text"] {
   min-width: min(320px, 100%);
+}
+
+select {
+  min-width: min(240px, 100%);
 }
 
 input[type="file"] {
@@ -66,7 +71,8 @@ button:focus-visible {
 }
 
 button:disabled,
-input:disabled {
+input:disabled,
+select:disabled {
   cursor: not-allowed;
   opacity: 0.55;
 }
@@ -154,6 +160,7 @@ pre {
   }
 
   input,
+  select,
   button,
   .document-row > button:not(.document-summary) {
     width: 100%;

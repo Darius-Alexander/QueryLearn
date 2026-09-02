@@ -87,6 +87,35 @@ type RetrievalResponse = {
   results: RetrievedChunk[];
 };
 
+type AnswerMode = "supplemented" | "notes_only";
+
+type AnswerCitation = {
+  citation_number: number;
+  chunk_id: string;
+  document_id: string;
+  document_filename: string;
+  chunk_index: number;
+  source_label: string;
+  score: number;
+};
+
+type AnswerEvidence = AnswerCitation & {
+  text: string;
+  metadata: Record<string, unknown>;
+};
+
+type AnswerResponse = {
+  chat_id: string;
+  course_id: string;
+  mode: AnswerMode;
+  question: string;
+  answer_text: string;
+  user_message: Message;
+  assistant_message: Message;
+  citations: AnswerCitation[];
+  evidence: AnswerEvidence[];
+};
+
 type ErrorResponse = {
   detail?: string;
 };
@@ -116,6 +145,7 @@ function App() {
   const [selectedChatId, setSelectedChatId] = useState("");
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageContent, setMessageContent] = useState("");
+  const [answerMode, setAnswerMode] = useState<AnswerMode>("supplemented");
   const [messageError, setMessageError] = useState("");
   const [isCreatingMessage, setIsCreatingMessage] = useState(false);
   const [chatTitle, setChatTitle] = useState("");
@@ -594,7 +624,7 @@ function App() {
     setMessageError("");
   }
 
-  function handleCreateMessage(event: FormEvent<HTMLFormElement>) {
+  async function handleCreateMessage(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
     if (!selectedChatId) {
@@ -611,29 +641,35 @@ function App() {
     setMessageError("");
     setIsCreatingMessage(true);
 
-    fetch(`${API_BASE_URL}/api/chats/${selectedChatId}/messages`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ role: "user", content }),
-    })
-      .then((response) => {
-        if (!response.ok) {
-          throw new Error("Could not send message");
-        }
-        return response.json();
-      })
-      .then((createdMessage: Message) => {
-        setMessages((currentMessages) => [...currentMessages, createdMessage]);
-        setMessageContent("");
-      })
-      .catch(() => {
-        setMessageError("Could not send message. Check that the backend is running.");
-      })
-      .finally(() => {
-        setIsCreatingMessage(false);
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChatId}/answers`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: content, mode: answerMode, limit: 5 }),
       });
+
+      if (!response.ok) {
+        const message = await readErrorDetail(
+          response,
+          "Could not generate answer. Check that the course has indexed chunks and the backend is running.",
+        );
+        throw new Error(message);
+      }
+
+      const answerResponse = (await response.json()) as AnswerResponse;
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        answerResponse.user_message,
+        answerResponse.assistant_message,
+      ]);
+      setMessageContent("");
+    } catch (error) {
+      setMessageError(error instanceof Error ? error.message : "Could not generate answer.");
+    } finally {
+      setIsCreatingMessage(false);
+    }
   }
 
   return (
@@ -848,6 +884,16 @@ function App() {
       <section>
         <h2>Messages</h2>
         <form onSubmit={handleCreateMessage}>
+          <label htmlFor="answer-mode">Answer mode</label>
+          <select
+            id="answer-mode"
+            value={answerMode}
+            onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
+            disabled={!selectedChatId || isCreatingMessage}
+          >
+            <option value="supplemented">Notes + AI explanation</option>
+            <option value="notes_only">Notes only</option>
+          </select>
           <label htmlFor="message-content">Message</label>
           <input
             id="message-content"
@@ -858,7 +904,7 @@ function App() {
             disabled={!selectedChatId}
           />
           <button type="submit" disabled={!selectedChatId || isCreatingMessage}>
-            {isCreatingMessage ? "Sending..." : "Send"}
+            {isCreatingMessage ? "Answering..." : "Ask"}
           </button>
         </form>
         {messageError && <p>{messageError}</p>}
