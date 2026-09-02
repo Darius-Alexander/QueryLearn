@@ -11,6 +11,7 @@ QueryLearn currently includes:
 - Course, chat, message, document, parsed-section, chunk, and chunk-embedding data models
 - Course creation and local chat/message storage
 - Document upload and metadata storage
+- One-click document preparation that parses, chunks, and indexes uploaded files
 - Manual document parsing with parsed text previews
 - Manual chunking with chunk previews
 - Manual indexing with OpenAI embeddings
@@ -44,7 +45,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Create `backend/.env` and set `OPENAI_API_KEY` before indexing documents, retrieving sources, or generating answers. Optionally set `OPENAI_ANSWER_MODEL` to override the default answer model.
+Create `backend/.env` and set `OPENAI_API_KEY` before preparing or indexing documents, retrieving sources, or generating answers. Optionally set `OPENAI_ANSWER_MODEL` to override the default answer model.
 
 Backend health check:
 
@@ -100,6 +101,8 @@ backend/
     parsing/
       models.py
       parsers.py
+      service.py
+    preparation/
       service.py
     retrieval/
       models.py

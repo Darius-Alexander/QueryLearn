@@ -133,6 +133,8 @@ function App() {
   const [chunkingDocumentId, setChunkingDocumentId] = useState("");
   const [indexError, setIndexError] = useState("");
   const [indexingDocumentId, setIndexingDocumentId] = useState("");
+  const [prepareError, setPrepareError] = useState("");
+  const [preparingDocumentId, setPreparingDocumentId] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
   const [documentError, setDocumentError] = useState("");
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
@@ -352,6 +354,7 @@ function App() {
     setSectionError("");
     setChunkError("");
     setIndexError("");
+    setPrepareError("");
     setRetrievalError("");
     setMessageError("");
     if (fileInputRef.current) {
@@ -399,6 +402,7 @@ function App() {
         setParsedSections([]);
         setChunks([]);
         setIndexError("");
+        setPrepareError("");
         setSelectedDocumentFile(null);
         if (fileInputRef.current) {
           fileInputRef.current.value = "";
@@ -419,6 +423,16 @@ function App() {
     setSectionError("");
     setChunkError("");
     setIndexError("");
+    setPrepareError("");
+  }
+
+  function isDocumentPipelineBusy(documentId: string) {
+    return [
+      parsingDocumentId,
+      chunkingDocumentId,
+      indexingDocumentId,
+      preparingDocumentId,
+    ].includes(documentId);
   }
 
   async function refreshDocument(documentId: string) {
@@ -437,11 +451,58 @@ function App() {
     return updatedDocument;
   }
 
+  async function handlePrepareDocument(documentId: string) {
+    setDocumentError("");
+    setSectionError("");
+    setChunkError("");
+    setIndexError("");
+    setPrepareError("");
+    setRetrievalError("");
+    setRetrievalResults([]);
+    setLatestAnswerResponse(null);
+    setPreparingDocumentId(documentId);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/prepare`, {
+        method: "POST",
+      });
+
+      if (!response.ok) {
+        const message = await readErrorDetail(
+          response,
+          "Could not prepare document. Check that the file can be parsed and OPENAI_API_KEY is set.",
+        );
+        await refreshDocument(documentId).catch(() => undefined);
+        throw new Error(message);
+      }
+
+      const preparedDocument = (await response.json()) as SourceDocument;
+      setDocuments((currentDocuments) =>
+        currentDocuments.map((document) =>
+          document.id === preparedDocument.id ? preparedDocument : document,
+        ),
+      );
+      setSelectedDocumentId(documentId);
+
+      const [loadedSections, loadedChunks] = await Promise.all([
+        fetchParsedSections(documentId),
+        fetchChunks(documentId),
+      ]);
+      setParsedSections(loadedSections);
+      setChunks(loadedChunks);
+    } catch (error) {
+      setPrepareError(error instanceof Error ? error.message : "Could not prepare document.");
+    } finally {
+      setPreparingDocumentId("");
+    }
+  }
+
   async function handleParseDocument(documentId: string) {
     setDocumentError("");
     setSectionError("");
     setChunkError("");
     setIndexError("");
+    setPrepareError("");
     setParsingDocumentId(documentId);
 
     try {
@@ -475,6 +536,7 @@ function App() {
     setDocumentError("");
     setChunkError("");
     setIndexError("");
+    setPrepareError("");
     setChunkingDocumentId(documentId);
 
     try {
@@ -505,6 +567,7 @@ function App() {
   async function handleIndexDocument(documentId: string) {
     setDocumentError("");
     setIndexError("");
+    setPrepareError("");
     setIndexingDocumentId(documentId);
 
     try {
@@ -764,6 +827,7 @@ function App() {
           </button>
         </form>
         {documentError && <p>{documentError}</p>}
+        {prepareError && <p>{prepareError}</p>}
         {!selectedCourseId && <p>Select a course to view documents.</p>}
         {selectedCourseId && documents.length === 0 && !documentError && <p>No documents for this course yet.</p>}
         <ul>
@@ -786,22 +850,35 @@ function App() {
               </button>
               <button
                 type="button"
+                onClick={() => handlePrepareDocument(document.id)}
+                disabled={isDocumentPipelineBusy(document.id)}
+              >
+                {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
+              </button>
+              <button
+                type="button"
                 onClick={() => handleParseDocument(document.id)}
-                disabled={parsingDocumentId === document.id}
+                disabled={isDocumentPipelineBusy(document.id)}
               >
                 {parsingDocumentId === document.id ? "Parsing..." : "Parse"}
               </button>
               <button
                 type="button"
                 onClick={() => handleChunkDocument(document.id)}
-                disabled={document.parsed_section_count === 0 || chunkingDocumentId === document.id}
+                disabled={
+                  document.parsed_section_count === 0 ||
+                  isDocumentPipelineBusy(document.id)
+                }
               >
                 {chunkingDocumentId === document.id ? "Chunking..." : "Chunk"}
               </button>
               <button
                 type="button"
                 onClick={() => handleIndexDocument(document.id)}
-                disabled={document.chunk_count === 0 || indexingDocumentId === document.id}
+                disabled={
+                  document.chunk_count === 0 ||
+                  isDocumentPipelineBusy(document.id)
+                }
               >
                 {indexingDocumentId === document.id ? "Indexing..." : "Index"}
               </button>
@@ -1010,6 +1087,24 @@ async function readErrorDetail(response: Response, fallbackMessage: string) {
   }
 
   return fallbackMessage;
+}
+
+async function fetchParsedSections(documentId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/sections`);
+  if (!response.ok) {
+    throw new Error("Could not load parsed sections for this document.");
+  }
+
+  return (await response.json()) as ParsedSection[];
+}
+
+async function fetchChunks(documentId: string) {
+  const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/chunks`);
+  if (!response.ok) {
+    throw new Error("Could not load chunks for this document.");
+  }
+
+  return (await response.json()) as Chunk[];
 }
 
 export default App;
