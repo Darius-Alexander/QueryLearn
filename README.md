@@ -16,9 +16,12 @@ QueryLearn currently includes:
 - Manual indexing with OpenAI embeddings
 - Course-scoped retrieval over indexed chunks
 - Retrieved source chunk previews with scores and source metadata
+- Chat answer generation from retrieved course sources
+- Two answer modes: Notes + AI explanation and Notes only
+- Latest generated answer source citations and evidence previews
 - Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
-Grounded answer generation, citations in answers, streaming AI responses, and broader evals are planned next.
+Persistent citation history, streaming AI responses, and broader evals are planned next.
 
 ## Tech Stack
 
@@ -26,6 +29,7 @@ Grounded answer generation, citations in answers, streaming AI responses, and br
 - Parsing: pypdf, python-docx, openpyxl, python-pptx
 - Indexing: OpenAI embeddings
 - Retrieval: brute-force cosine similarity over local SQLite embeddings
+- Answer generation: OpenAI Responses API
 - Frontend: Vite, React, TypeScript
 
 ## Backend Setup
@@ -40,7 +44,7 @@ pip install -r requirements.txt
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
-Create `backend/.env` and set `OPENAI_API_KEY` before indexing documents.
+Create `backend/.env` and set `OPENAI_API_KEY` before indexing documents, retrieving sources, or generating answers. Optionally set `OPENAI_ANSWER_MODEL` to override the default answer model.
 
 Backend health check:
 
@@ -80,6 +84,11 @@ QueryLearn stores local runtime data under `backend/data/`, including the SQLite
 ```text
 backend/
   app/
+    answering/
+      client.py
+      models.py
+      prompts.py
+      service.py
     chunking/
       chunkers.py
       models.py

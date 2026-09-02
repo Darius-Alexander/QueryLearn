@@ -146,6 +146,7 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageContent, setMessageContent] = useState("");
   const [answerMode, setAnswerMode] = useState<AnswerMode>("supplemented");
+  const [latestAnswerResponse, setLatestAnswerResponse] = useState<AnswerResponse | null>(null);
   const [messageError, setMessageError] = useState("");
   const [isCreatingMessage, setIsCreatingMessage] = useState(false);
   const [chatTitle, setChatTitle] = useState("");
@@ -346,6 +347,7 @@ function App() {
     setRetrievalResults([]);
     setChats([]);
     setMessages([]);
+    setLatestAnswerResponse(null);
     setDocumentError("");
     setSectionError("");
     setChunkError("");
@@ -608,6 +610,7 @@ function App() {
           [...currentChats, createdChat].sort((a, b) => a.title.localeCompare(b.title)),
         );
         setSelectedChatId(createdChat.id);
+        setLatestAnswerResponse(null);
         setChatTitle("");
       })
       .catch(() => {
@@ -621,6 +624,7 @@ function App() {
   function handleSelectChat(chatId: string) {
     setSelectedChatId(chatId);
     setMessages([]);
+    setLatestAnswerResponse(null);
     setMessageError("");
   }
 
@@ -664,8 +668,10 @@ function App() {
         answerResponse.user_message,
         answerResponse.assistant_message,
       ]);
+      setLatestAnswerResponse(answerResponse);
       setMessageContent("");
     } catch (error) {
+      setLatestAnswerResponse(null);
       setMessageError(error instanceof Error ? error.message : "Could not generate answer.");
     } finally {
       setIsCreatingMessage(false);
@@ -917,6 +923,19 @@ function App() {
             </li>
           ))}
         </ul>
+        {latestAnswerResponse && (
+          <div className="answer-preview">
+            <h3>Sources for latest answer</h3>
+            <ul>
+              {latestAnswerResponse.evidence.map((evidence) => (
+                <li key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                  <strong>{formatCitationLabel(evidence)}</strong>
+                  <pre>{evidence.text}</pre>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </section>
     </main>
   );
@@ -948,6 +967,12 @@ function formatIndexedChunkCount(count: number) {
 
 function formatRetrievalScore(score: number) {
   return score.toFixed(3);
+}
+
+function formatCitationLabel(citation: AnswerCitation) {
+  return `[${citation.citation_number}] ${citation.document_filename} - ${citation.source_label} - Chunk ${
+    citation.chunk_index + 1
+  } - Score ${formatRetrievalScore(citation.score)}`;
 }
 
 function formatSourceLabel(metadata: Record<string, unknown>) {
