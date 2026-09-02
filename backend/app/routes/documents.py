@@ -30,6 +30,8 @@ from ..parsing.parsers import (
     UnsupportedDocumentTypeError,
 )
 from ..parsing.service import parse_document_row
+from ..preparation.service import DocumentPreparationNotFoundError
+from ..preparation.service import prepare_document as prepare_document_pipeline
 
 
 router = APIRouter()
@@ -92,6 +94,40 @@ def get_document_metadata(document_id: str) -> Document:
     row = get_document(document_id)
     if row is None:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    return document_from_row(row)
+
+
+@router.post("/documents/{document_id}/prepare")
+def prepare_document(document_id: str) -> Document:
+    try:
+        row = prepare_document_pipeline(document_id)
+    except DocumentPreparationNotFoundError as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except UnreadableDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmptyParsedDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except UnsupportedDocumentTypeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except UnicodeDecodeError as error:
+        raise HTTPException(status_code=400, detail="Document is not valid UTF-8 text") from error
+    except OSError as error:
+        raise HTTPException(status_code=500, detail="Stored document could not be read") from error
+    except NoParsedSectionsError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmptyChunkedDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except NoChunksToIndexError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmptyIndexedDocumentError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except EmbeddingCountMismatchError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except EmbeddingConfigurationError as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+    except EmbeddingGenerationError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
 
     return document_from_row(row)
 
