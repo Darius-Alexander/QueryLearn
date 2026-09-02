@@ -53,3 +53,18 @@ class GeneratedAnswer:
     answer_text: str
     citations: list[AnswerCitation]
     evidence: list[AnswerEvidence]
+
+
+@dataclass(frozen=True)
+class AnswerGenerationSettings:
+    model: str = "gpt-4.1-mini"
+    temperature: float = 0.2
+    max_output_tokens: int = 800
+
+    def __post_init__(self) -> None:
+        if not self.model.strip():
+            raise ValueError("model is required")
+        if self.temperature < 0:
+            raise ValueError("temperature must be 0 or greater")
+        if self.max_output_tokens <= 0:
+            raise ValueError("max_output_tokens must be greater than 0")
