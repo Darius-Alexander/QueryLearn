@@ -105,3 +105,43 @@ class RetrievalResponse(BaseModel):
     course_id: str
     question: str
     results: list[RetrievedChunk]
+
+
+class AnswerRequest(BaseModel):
+    question: str
+    mode: str = "supplemented"
+    limit: int = 5
+
+
+class AnswerCitationResponse(BaseModel):
+    citation_number: int
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    chunk_index: int
+    source_label: str
+    score: float
+
+
+class AnswerEvidenceResponse(BaseModel):
+    citation_number: int
+    chunk_id: str
+    document_id: str
+    document_filename: str
+    chunk_index: int
+    source_label: str
+    score: float
+    text: str
+    metadata: dict[str, object]
+
+
+class AnswerResponse(BaseModel):
+    chat_id: str
+    course_id: str
+    mode: str
+    question: str
+    answer_text: str
+    user_message: Message
+    assistant_message: Message
+    citations: list[AnswerCitationResponse]
+    evidence: list[AnswerEvidenceResponse]
