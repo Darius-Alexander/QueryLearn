@@ -48,15 +48,6 @@ Expected:
 - latest answer sources render below the message list
 - citations point to chunks from the prepared document
 
-### Manual Buttons Still Work
-
-Use `Parse`, `Chunk`, or `Index` on a document after or instead of `Prepare`.
-
-Expected:
-
-- manual stage buttons still run their original endpoints
-- while any pipeline action is running for a document, `Prepare`, `Parse`, `Chunk`, and `Index` are disabled for that document
-
 ### Missing API Key Failure
 
 Temporarily remove or rename `OPENAI_API_KEY` in `backend/.env`, restart the backend, upload a small supported document, and click `Prepare`.
@@ -66,7 +57,6 @@ Expected:
 - preparation fails with a clear API-key-related error
 - UI leaves the document row usable
 - `Preparing...` clears after failure
-- manual buttons remain available for debugging
 
 ## Notes
 
@@ -77,3 +67,5 @@ uploaded document -> prepare endpoint -> parse -> chunk -> index -> refreshed do
 ```
 
 The preparation service is intentionally thin glue over existing stage services. It should not duplicate parser, chunker, or indexing internals.
+
+The normal frontend exposes `Prepare` as the single document pipeline action. Manual parse, chunk, and index endpoints still exist in the backend for debugging through FastAPI docs or direct API calls.

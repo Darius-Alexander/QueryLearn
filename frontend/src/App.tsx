@@ -64,13 +64,6 @@ type Chunk = {
   created_at: string;
 };
 
-type DocumentIndexResult = {
-  document_id: string;
-  indexed_chunk_count: number;
-  embedding_model: string;
-  embedding_dimension: number;
-};
-
 type RetrievedChunk = {
   chunk_id: string;
   document_id: string;
@@ -130,15 +123,11 @@ function App() {
   const [sectionError, setSectionError] = useState("");
   const [chunks, setChunks] = useState<Chunk[]>([]);
   const [chunkError, setChunkError] = useState("");
-  const [chunkingDocumentId, setChunkingDocumentId] = useState("");
-  const [indexError, setIndexError] = useState("");
-  const [indexingDocumentId, setIndexingDocumentId] = useState("");
   const [prepareError, setPrepareError] = useState("");
   const [preparingDocumentId, setPreparingDocumentId] = useState("");
   const [selectedDocumentFile, setSelectedDocumentFile] = useState<File | null>(null);
   const [documentError, setDocumentError] = useState("");
   const [isUploadingDocument, setIsUploadingDocument] = useState(false);
-  const [parsingDocumentId, setParsingDocumentId] = useState("");
   const [retrievalQuestion, setRetrievalQuestion] = useState("");
   const [retrievalResults, setRetrievalResults] = useState<RetrievedChunk[]>([]);
   const [retrievalError, setRetrievalError] = useState("");
@@ -353,7 +342,6 @@ function App() {
     setDocumentError("");
     setSectionError("");
     setChunkError("");
-    setIndexError("");
     setPrepareError("");
     setRetrievalError("");
     setMessageError("");
@@ -401,7 +389,6 @@ function App() {
         setSelectedDocumentId(createdDocument.id);
         setParsedSections([]);
         setChunks([]);
-        setIndexError("");
         setPrepareError("");
         setSelectedDocumentFile(null);
         if (fileInputRef.current) {
@@ -422,17 +409,7 @@ function App() {
     setChunks([]);
     setSectionError("");
     setChunkError("");
-    setIndexError("");
     setPrepareError("");
-  }
-
-  function isDocumentPipelineBusy(documentId: string) {
-    return [
-      parsingDocumentId,
-      chunkingDocumentId,
-      indexingDocumentId,
-      preparingDocumentId,
-    ].includes(documentId);
   }
 
   async function refreshDocument(documentId: string) {
@@ -455,7 +432,6 @@ function App() {
     setDocumentError("");
     setSectionError("");
     setChunkError("");
-    setIndexError("");
     setPrepareError("");
     setRetrievalError("");
     setRetrievalResults([]);
@@ -494,102 +470,6 @@ function App() {
       setPrepareError(error instanceof Error ? error.message : "Could not prepare document.");
     } finally {
       setPreparingDocumentId("");
-    }
-  }
-
-  async function handleParseDocument(documentId: string) {
-    setDocumentError("");
-    setSectionError("");
-    setChunkError("");
-    setIndexError("");
-    setPrepareError("");
-    setParsingDocumentId(documentId);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/parse`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const message = await readErrorDetail(
-          response,
-          "Could not parse document. Only .txt, .md, .csv, .docx, .xlsx, .pptx, and text-based .pdf files are supported right now.",
-        );
-        await refreshDocument(documentId).catch(() => undefined);
-        throw new Error(message);
-      }
-
-      const sections = (await response.json()) as ParsedSection[];
-      setParsedSections(sections);
-      setChunks([]);
-      setIndexError("");
-      setSelectedDocumentId(documentId);
-      await refreshDocument(documentId);
-    } catch (error) {
-      setDocumentError(error instanceof Error ? error.message : "Could not parse document.");
-    } finally {
-      setParsingDocumentId("");
-    }
-  }
-
-  async function handleChunkDocument(documentId: string) {
-    setDocumentError("");
-    setChunkError("");
-    setIndexError("");
-    setPrepareError("");
-    setChunkingDocumentId(documentId);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/chunks`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const message = await readErrorDetail(
-          response,
-          "Could not chunk document. Parse the document before chunking.",
-        );
-        throw new Error(message);
-      }
-
-      const createdChunks = (await response.json()) as Chunk[];
-      setChunks(createdChunks);
-      setIndexError("");
-      setSelectedDocumentId(documentId);
-      await refreshDocument(documentId);
-    } catch (error) {
-      setChunkError(error instanceof Error ? error.message : "Could not chunk document.");
-    } finally {
-      setChunkingDocumentId("");
-    }
-  }
-
-  async function handleIndexDocument(documentId: string) {
-    setDocumentError("");
-    setIndexError("");
-    setPrepareError("");
-    setIndexingDocumentId(documentId);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/documents/${documentId}/index`, {
-        method: "POST",
-      });
-
-      if (!response.ok) {
-        const message = await readErrorDetail(
-          response,
-          "Could not index document. Chunk the document before indexing.",
-        );
-        throw new Error(message);
-      }
-
-      await response.json() as DocumentIndexResult;
-      setSelectedDocumentId(documentId);
-      await refreshDocument(documentId);
-    } catch (error) {
-      setIndexError(error instanceof Error ? error.message : "Could not index document.");
-    } finally {
-      setIndexingDocumentId("");
     }
   }
 
@@ -851,36 +731,9 @@ function App() {
               <button
                 type="button"
                 onClick={() => handlePrepareDocument(document.id)}
-                disabled={isDocumentPipelineBusy(document.id)}
+                disabled={preparingDocumentId === document.id}
               >
                 {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleParseDocument(document.id)}
-                disabled={isDocumentPipelineBusy(document.id)}
-              >
-                {parsingDocumentId === document.id ? "Parsing..." : "Parse"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChunkDocument(document.id)}
-                disabled={
-                  document.parsed_section_count === 0 ||
-                  isDocumentPipelineBusy(document.id)
-                }
-              >
-                {chunkingDocumentId === document.id ? "Chunking..." : "Chunk"}
-              </button>
-              <button
-                type="button"
-                onClick={() => handleIndexDocument(document.id)}
-                disabled={
-                  document.chunk_count === 0 ||
-                  isDocumentPipelineBusy(document.id)
-                }
-              >
-                {indexingDocumentId === document.id ? "Indexing..." : "Index"}
               </button>
             </li>
           ))}
@@ -905,7 +758,6 @@ function App() {
           </div>
         )}
         {chunkError && <p>{chunkError}</p>}
-        {indexError && <p>{indexError}</p>}
         {selectedDocumentId && chunks.length === 0 && !chunkError && (
           <p>No chunks for this document yet.</p>
         )}

@@ -12,9 +12,8 @@ QueryLearn currently includes:
 - Course creation and local chat/message storage
 - Document upload and metadata storage
 - One-click document preparation that parses, chunks, and indexes uploaded files
-- Manual document parsing with parsed text previews
-- Manual chunking with chunk previews
-- Manual indexing with OpenAI embeddings
+- Parsed section and chunk previews for prepared documents
+- Backend debug endpoints for manual parse, chunk, and index stages
 - Course-scoped retrieval over indexed chunks
 - Retrieved source chunk previews with scores and source metadata
 - Chat answer generation from retrieved course sources
