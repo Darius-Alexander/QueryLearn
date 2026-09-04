@@ -18,6 +18,7 @@ QueryLearn currently includes:
 - Retrieved source chunk previews with scores and source metadata
 - Chat answer generation from retrieved course sources
 - Two answer modes: Notes + AI explanation and Notes only
+- Answer model selection: Economy, Fast, Balanced, and Deep
 - Latest generated answer source citations and evidence previews
 - Supported parsing formats: `.txt`, `.md`, `.csv`, `.pdf`, `.docx`, `.xlsx`, `.pptx`
 
@@ -45,6 +46,15 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8001
 ```
 
 Create `backend/.env` and set `OPENAI_API_KEY` before preparing or indexing documents, retrieving sources, or generating answers. Optionally set `OPENAI_ANSWER_MODEL` to override the default answer model.
+
+Answer model selection applies only to answer generation. Retrieval embeddings still use the indexing/retrieval embedding model. The frontend defaults to `Balanced`; the backend default path still uses `OPENAI_ANSWER_MODEL` when it is set.
+
+```text
+Economy -> gpt-5-nano
+Fast -> gpt-5.6-luna
+Balanced -> gpt-5.6-terra
+Deep -> gpt-5.6-sol
+```
 
 Backend health check:
 

@@ -30,9 +30,31 @@ Expected:
 
 - chat shows the user question and assistant answer
 - answer is cohesive, not split into separate notes/background excerpts unless naturally needed
+- latest answer metadata shows the selected answer model
 - answer cites claims supported by course sources with markers such as `[1]`
 - latest answer sources show filename, source label, chunk number, score, and evidence text
 - any supplemental background is clearly signaled as general context when it is not in the notes
+
+### Answer Model Selection
+
+Ask a relevant question with `Economy`, then ask another relevant question with `Balanced`.
+
+Expected:
+
+- both answers appear in the chat
+- latest answer sources still render after each response
+- answer metadata changes to match the selected model option
+- model choice affects only the new answer, not older messages
+- retrieval and citations still point to prepared course chunks
+
+Optional direct API check:
+
+Send a request to `POST /api/chats/{chat_id}/answers` with an unsupported `model_choice`.
+
+Expected:
+
+- backend returns `400`
+- response explains that the answer model choice is unsupported
 
 ### Relevant Question, Notes Only
 
@@ -93,6 +115,15 @@ Answer generation currently uses:
 
 ```text
 chat question -> course-scoped retrieval -> prompt with retrieved chunks -> OpenAI answer call -> persisted user/assistant messages
+```
+
+Answer requests can include `model_choice`. The current frontend choices are:
+
+```text
+economy -> gpt-5-nano
+fast -> gpt-5.6-luna
+balanced -> gpt-5.6-terra
+deep -> gpt-5.6-sol
 ```
 
 Current citation metadata is returned with the live answer response and shown for the latest answer only. Assistant message text persists in SQLite, but citation history does not persist yet.

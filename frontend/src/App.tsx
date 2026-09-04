@@ -81,6 +81,8 @@ type RetrievalResponse = {
 };
 
 type AnswerMode = "supplemented" | "notes_only";
+type AnswerModelChoice = "economy" | "fast" | "balanced" | "deep";
+type AnswerModelChoiceResponse = "backend_default" | AnswerModelChoice;
 
 type AnswerCitation = {
   citation_number: number;
@@ -103,6 +105,8 @@ type AnswerResponse = {
   mode: AnswerMode;
   question: string;
   answer_text: string;
+  model_choice: AnswerModelChoiceResponse;
+  model: string;
   user_message: Message;
   assistant_message: Message;
   citations: AnswerCitation[];
@@ -137,6 +141,8 @@ function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [messageContent, setMessageContent] = useState("");
   const [answerMode, setAnswerMode] = useState<AnswerMode>("supplemented");
+  const [answerModelChoice, setAnswerModelChoice] =
+    useState<AnswerModelChoice>("balanced");
   const [latestAnswerResponse, setLatestAnswerResponse] = useState<AnswerResponse | null>(null);
   const [messageError, setMessageError] = useState("");
   const [isCreatingMessage, setIsCreatingMessage] = useState(false);
@@ -594,7 +600,12 @@ function App() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ question: content, mode: answerMode, limit: 5 }),
+        body: JSON.stringify({
+          question: content,
+          mode: answerMode,
+          model_choice: answerModelChoice,
+          limit: 5,
+        }),
       });
 
       if (!response.ok) {
@@ -829,6 +840,18 @@ function App() {
             <option value="supplemented">Notes + AI explanation</option>
             <option value="notes_only">Notes only</option>
           </select>
+          <label htmlFor="answer-model">Answer model</label>
+          <select
+            id="answer-model"
+            value={answerModelChoice}
+            onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
+            disabled={!selectedChatId || isCreatingMessage}
+          >
+            <option value="economy">Economy</option>
+            <option value="fast">Fast</option>
+            <option value="balanced">Balanced</option>
+            <option value="deep">Deep</option>
+          </select>
           <label htmlFor="message-content">Message</label>
           <input
             id="message-content"
@@ -855,6 +878,10 @@ function App() {
         {latestAnswerResponse && (
           <div className="answer-preview">
             <h3>Sources for latest answer</h3>
+            <p className="answer-metadata">
+              Answered with {formatAnswerModelChoice(latestAnswerResponse.model_choice)} (
+              {latestAnswerResponse.model})
+            </p>
             <ul>
               {latestAnswerResponse.evidence.map((evidence) => (
                 <li key={`${evidence.chunk_id}-${evidence.citation_number}`}>
@@ -896,6 +923,18 @@ function formatIndexedChunkCount(count: number) {
 
 function formatRetrievalScore(score: number) {
   return score.toFixed(3);
+}
+
+function formatAnswerModelChoice(choice: AnswerModelChoiceResponse) {
+  const labels: Record<AnswerModelChoiceResponse, string> = {
+    backend_default: "Backend default",
+    economy: "Economy",
+    fast: "Fast",
+    balanced: "Balanced",
+    deep: "Deep",
+  };
+
+  return labels[choice];
 }
 
 function formatCitationLabel(citation: AnswerCitation) {

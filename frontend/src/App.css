@@ -122,6 +122,12 @@ li span {
   color: var(--danger);
 }
 
+.answer-metadata {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+}
+
 strong {
   color: var(--text-h);
 }
