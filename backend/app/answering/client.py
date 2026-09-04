@@ -33,7 +33,7 @@ def generate_answer_text(
     except ImportError as error:
         raise AnswerConfigurationError("The openai Python package is required") from error
 
-    model = os.environ.get("OPENAI_ANSWER_MODEL", settings.model).strip() or settings.model
+    model = resolve_answer_generation_model(settings)
     client = OpenAI(api_key=api_key)
     try:
         response = client.responses.create(
@@ -47,6 +47,16 @@ def generate_answer_text(
         raise AnswerGenerationError("Could not generate answer") from error
 
     return extract_response_text(response)
+
+
+def resolve_answer_generation_model(
+    settings: AnswerGenerationSettings = DEFAULT_ANSWER_GENERATION_SETTINGS,
+) -> str:
+    load_backend_env()
+    if not settings.use_backend_default_model:
+        return settings.model
+
+    return os.environ.get("OPENAI_ANSWER_MODEL", settings.model).strip() or settings.model
 
 
 def system_instructions_from_messages(prompt_messages: list[AnswerPromptMessage]) -> str:

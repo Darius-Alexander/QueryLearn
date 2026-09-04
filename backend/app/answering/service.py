@@ -5,18 +5,21 @@ from ..retrieval.models import RetrievalResult
 from .client import generate_answer_text
 from .models import (
     DEFAULT_ANSWER_MODE,
+    DEFAULT_ANSWER_MODEL_CHOICE,
     SUPPORTED_ANSWER_MODES,
     AnswerCitation,
     AnswerEvidence,
+    AnswerGenerationSettings,
     AnswerPromptMessage,
     AnswerMode,
     GeneratedAnswer,
     PreparedAnswerContext,
+    normalize_answer_model_choice,
 )
 from .prompts import build_answer_messages
 
 
-AnswerGenerator = Callable[[list[AnswerPromptMessage]], str]
+AnswerGenerator = Callable[[list[AnswerPromptMessage], AnswerGenerationSettings], str]
 
 
 class EmptyAnswerQuestionError(ValueError):
@@ -35,10 +38,13 @@ def generate_grounded_answer(
     question: str,
     retrieval_results: Sequence[RetrievalResult],
     mode: str | None = DEFAULT_ANSWER_MODE,
+    model_choice: str | None = DEFAULT_ANSWER_MODEL_CHOICE,
+    generation_settings: AnswerGenerationSettings = AnswerGenerationSettings(),
     answer_generator: AnswerGenerator = generate_answer_text,
 ) -> GeneratedAnswer:
     context = prepare_answer_context(question, retrieval_results, mode)
-    answer_text = answer_generator(context.prompt_messages).strip()
+    normalized_model_choice = normalize_answer_model_choice(model_choice)
+    answer_text = answer_generator(context.prompt_messages, generation_settings).strip()
     if not answer_text:
         raise EmptyGeneratedAnswerError("Answer generation produced an empty answer")
 
@@ -46,6 +52,8 @@ def generate_grounded_answer(
         mode=context.mode,
         question=context.question,
         answer_text=answer_text,
+        model_choice=normalized_model_choice,
+        model=generation_settings.model,
         citations=context.citations,
         evidence=context.evidence,
     )

@@ -21,6 +21,10 @@ SUPPORTED_ANSWER_MODEL_CHOICES = {
 }
 
 
+class UnsupportedAnswerModelChoiceError(ValueError):
+    pass
+
+
 def normalize_answer_model_choice(choice: str | None) -> AnswerModelChoice:
     if choice is None:
         return DEFAULT_ANSWER_MODEL_CHOICE
@@ -29,7 +33,7 @@ def normalize_answer_model_choice(choice: str | None) -> AnswerModelChoice:
     if clean_choice in SUPPORTED_ANSWER_MODEL_CHOICES:
         return cast(AnswerModelChoice, clean_choice)
 
-    raise ValueError(
+    raise UnsupportedAnswerModelChoiceError(
         f"Unsupported answer model choice: {choice}. Supported choices are: "
         f"{', '.join(sorted(SUPPORTED_ANSWER_MODEL_CHOICES))}"
     )
@@ -92,6 +96,8 @@ class GeneratedAnswer:
     mode: AnswerMode
     question: str
     answer_text: str
+    model_choice: AnswerModelChoice
+    model: str
     citations: list[AnswerCitation]
     evidence: list[AnswerEvidence]
 
@@ -101,6 +107,7 @@ class AnswerGenerationSettings:
     model: str = DEFAULT_ANSWER_GENERATION_MODEL
     temperature: float = 0.2
     max_output_tokens: int = 800
+    use_backend_default_model: bool = True
 
     def __post_init__(self) -> None:
         if not self.model.strip():

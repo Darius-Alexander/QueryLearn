@@ -110,6 +110,7 @@ class RetrievalResponse(BaseModel):
 class AnswerRequest(BaseModel):
     question: str
     mode: str = "supplemented"
+    model_choice: str | None = None
     limit: int = 5
 
 
@@ -141,6 +142,8 @@ class AnswerResponse(BaseModel):
     mode: str
     question: str
     answer_text: str
+    model_choice: str
+    model: str
     user_message: Message
     assistant_message: Message
     citations: list[AnswerCitationResponse]

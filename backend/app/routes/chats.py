@@ -1,7 +1,19 @@
 from fastapi import APIRouter, HTTPException
 
-from ..answering.client import AnswerConfigurationError, AnswerGenerationError
-from ..answering.models import AnswerCitation, AnswerEvidence, GeneratedAnswer
+from ..answering.client import (
+    AnswerConfigurationError,
+    AnswerGenerationError,
+    resolve_answer_generation_model,
+)
+from ..answering.models import (
+    AnswerCitation,
+    AnswerEvidence,
+    AnswerGenerationSettings,
+    GeneratedAnswer,
+    UnsupportedAnswerModelChoiceError,
+    normalize_answer_model_choice,
+    resolve_answer_model_choice,
+)
 from ..answering.service import (
     EmptyAnswerQuestionError,
     EmptyGeneratedAnswerError,
@@ -64,6 +76,15 @@ def create_chat_answer(chat_id: str, payload: AnswerRequest) -> AnswerResponse:
 
     try:
         answer_mode = normalize_answer_mode(payload.mode)
+        answer_model_choice = normalize_answer_model_choice(payload.model_choice)
+        answer_model = resolve_answer_model_choice(
+            answer_model_choice,
+            resolve_answer_generation_model(),
+        )
+        generation_settings = AnswerGenerationSettings(
+            model=answer_model,
+            use_backend_default_model=False,
+        )
         retrieval_results = retrieve_chunks_for_course(
             chat["course_id"],
             payload.question,
@@ -73,12 +94,16 @@ def create_chat_answer(chat_id: str, payload: AnswerRequest) -> AnswerResponse:
             payload.question,
             retrieval_results,
             answer_mode,
+            answer_model_choice,
+            generation_settings,
         )
     except EmptyRetrievalQueryError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except NoIndexedChunksError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except UnsupportedAnswerModeError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+    except UnsupportedAnswerModelChoiceError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
     except EmptyAnswerQuestionError as error:
         raise HTTPException(status_code=400, detail=str(error)) from error
@@ -134,6 +159,8 @@ def answer_response_from_generated_answer(
         mode=generated_answer.mode,
         question=generated_answer.question,
         answer_text=generated_answer.answer_text,
+        model_choice=generated_answer.model_choice,
+        model=generated_answer.model,
         user_message=user_message,
         assistant_message=assistant_message,
         citations=[
