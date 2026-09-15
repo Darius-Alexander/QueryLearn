@@ -667,59 +667,60 @@ function App() {
             </div>
           </form>
           {courseError && <p className="error-text">{courseError}</p>}
-          <ul className="nav-list">
+          <ul className="course-tree">
             {courses.map((course) => (
-              <li key={course.id}>
+              <li className="course-node" key={course.id}>
                 <button
-                  className={course.id === selectedCourseId ? "nav-item selected" : "nav-item"}
+                  className={course.id === selectedCourseId ? "course-item selected" : "course-item"}
                   type="button"
                   onClick={() => handleSelectCourse(course.id)}
+                  aria-current={course.id === selectedCourseId ? "page" : undefined}
+                  aria-expanded={course.id === selectedCourseId}
                 >
-                  {course.name}
+                  <span>{course.name}</span>
                 </button>
+                {course.id === selectedCourseId && (
+                  <div className="chat-branch">
+                    <form className="nested-form" onSubmit={handleCreateChat}>
+                      <label htmlFor="chat-title">New chat</label>
+                      <div className="inline-control">
+                        <input
+                          id="chat-title"
+                          type="text"
+                          value={chatTitle}
+                          onChange={(event) => setChatTitle(event.target.value)}
+                          placeholder="Midterm review"
+                          disabled={!selectedCourseId}
+                        />
+                        <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
+                          {isCreatingChat ? "Adding..." : "Add"}
+                        </button>
+                      </div>
+                    </form>
+                    {chatError && <p className="error-text">{chatError}</p>}
+                    {chats.length === 0 && !chatError && (
+                      <p className="muted-text">No chats yet.</p>
+                    )}
+                    <ul className="chat-list" aria-label={`Chats in ${course.name}`}>
+                      {chats.map((chat) => (
+                        <li key={chat.id}>
+                          <button
+                            className={chat.id === selectedChatId ? "chat-item selected" : "chat-item"}
+                            type="button"
+                            onClick={() => handleSelectChat(chat.id)}
+                            aria-current={chat.id === selectedChatId ? "page" : undefined}
+                          >
+                            <span>{chat.title}</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </li>
             ))}
           </ul>
-        </section>
-
-        <section className="panel sidebar-panel">
-          <div className="section-heading">
-            <h2>Chats</h2>
-          </div>
-          <form className="compact-form" onSubmit={handleCreateChat}>
-            <label htmlFor="chat-title">Chat title</label>
-            <div className="inline-control">
-              <input
-                id="chat-title"
-                type="text"
-                value={chatTitle}
-                onChange={(event) => setChatTitle(event.target.value)}
-                placeholder="Midterm review"
-                disabled={!selectedCourseId}
-              />
-              <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
-                {isCreatingChat ? "Adding..." : "Add"}
-              </button>
-            </div>
-          </form>
-          {chatError && <p className="error-text">{chatError}</p>}
           {!selectedCourseId && <p className="muted-text">Choose a course to see its chats.</p>}
-          {selectedCourseId && chats.length === 0 && !chatError && (
-            <p className="muted-text">No chats yet.</p>
-          )}
-          <ul className="nav-list">
-            {chats.map((chat) => (
-              <li key={chat.id}>
-                <button
-                  className={chat.id === selectedChatId ? "nav-item selected" : "nav-item"}
-                  type="button"
-                  onClick={() => handleSelectChat(chat.id)}
-                >
-                  {chat.title}
-                </button>
-              </li>
-            ))}
-          </ul>
         </section>
       </aside>
 
@@ -750,8 +751,10 @@ function App() {
           )}
           {messages.map((message) => (
             <article className={`message-bubble ${message.role}`} key={message.id}>
-              <span className="message-role">{message.role === "assistant" ? "QueryLearn" : "You"}</span>
-              <p>{message.content}</p>
+              <header className="message-heading">
+                <span className="message-role">{message.role === "assistant" ? "QueryLearn" : "You"}</span>
+              </header>
+              <div className="message-content">{message.content}</div>
             </article>
           ))}
           {latestAnswerResponse && (
@@ -766,28 +769,32 @@ function App() {
 
         <form className="composer" onSubmit={handleCreateMessage}>
           <div className="composer-settings">
-            <label htmlFor="answer-mode">Answer mode</label>
-            <select
-              id="answer-mode"
-              value={answerMode}
-              onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
-              disabled={!selectedChatId || isCreatingMessage}
-            >
-              <option value="supplemented">Notes + AI explanation</option>
-              <option value="notes_only">Notes only</option>
-            </select>
-            <label htmlFor="answer-model">Answer model</label>
-            <select
-              id="answer-model"
-              value={answerModelChoice}
-              onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
-              disabled={!selectedChatId || isCreatingMessage}
-            >
-              <option value="economy">Economy</option>
-              <option value="fast">Fast</option>
-              <option value="balanced">Balanced</option>
-              <option value="deep">Deep</option>
-            </select>
+            <div className="setting-field">
+              <label htmlFor="answer-mode">Answer mode</label>
+              <select
+                id="answer-mode"
+                value={answerMode}
+                onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
+                disabled={!selectedChatId || isCreatingMessage}
+              >
+                <option value="supplemented">Notes + AI explanation</option>
+                <option value="notes_only">Notes only</option>
+              </select>
+            </div>
+            <div className="setting-field">
+              <label htmlFor="answer-model">Model</label>
+              <select
+                id="answer-model"
+                value={answerModelChoice}
+                onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
+                disabled={!selectedChatId || isCreatingMessage}
+              >
+                <option value="economy">Economy</option>
+                <option value="fast">Fast</option>
+                <option value="balanced">Balanced</option>
+                <option value="deep">Deep</option>
+              </select>
+            </div>
           </div>
           <label htmlFor="message-content">Message</label>
           <div className="composer-input-row">
