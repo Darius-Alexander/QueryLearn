@@ -780,13 +780,30 @@ function App() {
               <header className="message-heading">
                 <span className="message-role">{message.role === "assistant" ? "QueryLearn" : "You"}</span>
               </header>
-              <div className="message-content">{message.content}</div>
+              <div className="message-content">{renderMessageContent(message)}</div>
             </article>
           ))}
+          {isCreatingMessage && (
+            <article className="message-bubble assistant message-pending" aria-live="polite">
+              <header className="message-heading">
+                <span className="message-role">QueryLearn</span>
+              </header>
+              <div className="message-content">
+                <p>
+                  <span className="pending-dots" aria-hidden="true">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                  Looking through your prepared notes...
+                </p>
+              </div>
+            </article>
+          )}
           {latestAnswerResponse && (
             <div className="latest-answer-strip">
               <span>
-                Latest answer used {latestAnswerResponse.evidence.length} sources with{" "}
+                Latest answer used {formatSourceCount(latestAnswerResponse.evidence.length)} with{" "}
                 {formatAnswerModelChoice(latestAnswerResponse.model_choice)}.
               </span>
             </div>
@@ -842,6 +859,40 @@ function App() {
       </section>
 
       <aside className="context-panel" aria-label="Course notes and sources">
+        <section className="panel sources-panel">
+          <div className="section-heading">
+            <h2>Sources</h2>
+          </div>
+          {!latestAnswerResponse && (
+            <div className="sources-empty">
+              <strong>No answer sources yet</strong>
+              <p>After QueryLearn answers, the notes it used will appear here.</p>
+            </div>
+          )}
+          {latestAnswerResponse && (
+            <div className="answer-preview">
+              <p className="answer-metadata">
+                Latest answer - {formatSourceCount(latestAnswerResponse.evidence.length)} -{" "}
+                {formatAnswerModelChoice(latestAnswerResponse.model_choice)}
+              </p>
+              <ul className="source-card-list">
+                {latestAnswerResponse.evidence.map((evidence) => (
+                  <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                    <div className="source-card-heading">
+                      <span className="citation-marker">[{evidence.citation_number}]</span>
+                      <div>
+                        <strong>{evidence.document_filename}</strong>
+                        <span>{formatEvidenceLocation(evidence)}</span>
+                      </div>
+                    </div>
+                    <p>{evidence.text}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
         <section className="panel notes-panel">
           <div className="section-heading">
             <h2>Notes</h2>
@@ -927,40 +978,6 @@ function App() {
               })}
             </ul>
           </div>
-        </section>
-
-        <section className="panel sources-panel">
-          <div className="section-heading">
-            <h2>Sources</h2>
-          </div>
-          {!latestAnswerResponse && (
-            <div className="sources-empty">
-              <strong>No answer sources yet</strong>
-              <p>After QueryLearn answers, the notes it used will appear here.</p>
-            </div>
-          )}
-          {latestAnswerResponse && (
-            <div className="answer-preview">
-              <p className="answer-metadata">
-                Latest answer - {formatSourceCount(latestAnswerResponse.evidence.length)} -{" "}
-                {formatAnswerModelChoice(latestAnswerResponse.model_choice)}
-              </p>
-              <ul className="source-card-list">
-                {latestAnswerResponse.evidence.map((evidence) => (
-                  <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
-                    <div className="source-card-heading">
-                      <span className="citation-marker">[{evidence.citation_number}]</span>
-                      <div>
-                        <strong>{evidence.document_filename}</strong>
-                        <span>{formatEvidenceLocation(evidence)}</span>
-                      </div>
-                    </div>
-                    <p>{evidence.text}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
         </section>
 
         <section className="panel secondary-panel">
@@ -1129,6 +1146,37 @@ function getChatGuidance({
     composerHint: "",
     className: "is-ready",
   };
+}
+
+function renderMessageContent(message: Message) {
+  const paragraphs = message.content
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.trim())
+    .filter(Boolean);
+
+  if (paragraphs.length === 0) {
+    return null;
+  }
+
+  return paragraphs.map((paragraph, index) => (
+    <p key={`${message.id}-paragraph-${index}`}>
+      {message.role === "assistant" ? renderCitationText(paragraph) : paragraph}
+    </p>
+  ));
+}
+
+function renderCitationText(text: string) {
+  return text.split(/(\[\d+\])/g).map((part, index) => {
+    if (/^\[\d+\]$/.test(part)) {
+      return (
+        <span className="message-citation" key={`${part}-${index}`}>
+          {part}
+        </span>
+      );
+    }
+
+    return part;
+  });
 }
 
 function getDocumentReadiness(

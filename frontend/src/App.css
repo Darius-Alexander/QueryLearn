@@ -654,6 +654,7 @@ textarea:disabled {
 
 .message-bubble.user {
   align-self: flex-end;
+  max-width: min(620px, 72%);
   border-color: var(--accent-border);
   border-bottom-right-radius: 5px;
   background: var(--user-message-bg);
@@ -661,8 +662,13 @@ textarea:disabled {
 
 .message-bubble.assistant {
   align-self: flex-start;
+  max-width: min(820px, 88%);
   border-bottom-left-radius: 5px;
   background: var(--surface-muted);
+}
+
+.message-pending {
+  border-style: dashed;
 }
 
 .message-heading {
@@ -679,11 +685,84 @@ textarea:disabled {
 }
 
 .message-content {
+  display: grid;
+  gap: 10px;
   margin: 0;
   color: var(--text-h);
   font-size: 15px;
   line-height: 1.6;
+}
+
+.message-content p {
+  margin: 0;
   white-space: pre-wrap;
+}
+
+.message-bubble.assistant .message-content {
+  line-height: 1.68;
+}
+
+.message-bubble.user .message-content {
+  font-size: 14px;
+  line-height: 1.52;
+}
+
+.message-citation {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--accent-soft-border);
+  border-radius: 999px;
+  margin: 0 1px;
+  padding: 0 5px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  font-size: 0.86em;
+  font-weight: 720;
+  line-height: 1.45;
+  white-space: nowrap;
+}
+
+.pending-dots {
+  display: inline-flex;
+  gap: 3px;
+  margin-right: 8px;
+  vertical-align: middle;
+}
+
+.pending-dots span {
+  width: 5px;
+  height: 5px;
+  border-radius: 999px;
+  background: var(--accent);
+  animation: pending-dot 900ms ease-in-out infinite;
+}
+
+.pending-dots span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.pending-dots span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+@keyframes pending-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.34;
+    transform: translateY(0);
+  }
+
+  40% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pending-dots span {
+    animation: none;
+  }
 }
 
 .latest-answer-strip {
@@ -839,6 +918,14 @@ textarea:disabled {
   color: var(--text);
   font-size: 13px;
   line-height: 1.4;
+}
+
+.composer .error-text {
+  max-width: 760px;
+  border: 1px solid var(--danger-border);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: var(--danger-bg);
 }
 
 .preview-list li {
