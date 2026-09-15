@@ -929,24 +929,33 @@ function App() {
           </div>
         </section>
 
-        <section className="panel">
+        <section className="panel sources-panel">
           <div className="section-heading">
-            <h2>Latest Sources</h2>
+            <h2>Sources</h2>
           </div>
           {!latestAnswerResponse && (
-            <p className="muted-text">Sources for the latest answer will appear here.</p>
+            <div className="sources-empty">
+              <strong>No answer sources yet</strong>
+              <p>After QueryLearn answers, the notes it used will appear here.</p>
+            </div>
           )}
           {latestAnswerResponse && (
             <div className="answer-preview">
               <p className="answer-metadata">
-                Answered with {formatAnswerModelChoice(latestAnswerResponse.model_choice)} (
-                {latestAnswerResponse.model})
+                Latest answer - {formatSourceCount(latestAnswerResponse.evidence.length)} -{" "}
+                {formatAnswerModelChoice(latestAnswerResponse.model_choice)}
               </p>
-              <ul className="preview-list">
+              <ul className="source-card-list">
                 {latestAnswerResponse.evidence.map((evidence) => (
-                  <li key={`${evidence.chunk_id}-${evidence.citation_number}`}>
-                    <strong>{formatCitationLabel(evidence)}</strong>
-                    <pre>{evidence.text}</pre>
+                  <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                    <div className="source-card-heading">
+                      <span className="citation-marker">[{evidence.citation_number}]</span>
+                      <div>
+                        <strong>{evidence.document_filename}</strong>
+                        <span>{formatEvidenceLocation(evidence)}</span>
+                      </div>
+                    </div>
+                    <p>{evidence.text}</p>
                   </li>
                 ))}
               </ul>
@@ -1197,6 +1206,10 @@ function formatIndexedChunkCount(count: number) {
   return count === 1 ? "1 indexed chunk" : `${count} indexed chunks`;
 }
 
+function formatSourceCount(count: number) {
+  return count === 1 ? "1 source" : `${count} sources`;
+}
+
 function formatRetrievalScore(score: number) {
   return score.toFixed(3);
 }
@@ -1213,10 +1226,9 @@ function formatAnswerModelChoice(choice: AnswerModelChoiceResponse) {
   return labels[choice];
 }
 
-function formatCitationLabel(citation: AnswerCitation) {
-  return `[${citation.citation_number}] ${citation.document_filename} - ${citation.source_label} - Chunk ${
-    citation.chunk_index + 1
-  } - Score ${formatRetrievalScore(citation.score)}`;
+function formatEvidenceLocation(evidence: AnswerEvidence) {
+  const sourceLabel = evidence.source_label.trim() || formatSourceLabel(evidence.metadata);
+  return `${sourceLabel} - Chunk ${evidence.chunk_index + 1}`;
 }
 
 function formatSourceLabel(metadata: Record<string, unknown>) {
