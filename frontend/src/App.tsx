@@ -169,6 +169,8 @@ function App() {
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(true);
   const [isSourceCheckOpen, setIsSourceCheckOpen] = useState(false);
+  const [isCoursePanelOpen, setIsCoursePanelOpen] = useState(true);
+  const [isStudyPanelOpen, setIsStudyPanelOpen] = useState(true);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -189,6 +191,21 @@ function App() {
         setCourses(data);
         setSelectedCourseId((currentCourseId) => currentCourseId || data[0]?.id || "");
       });
+  }, []);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia("(max-width: 780px)");
+    const syncPanelDefaults = () => {
+      setIsCoursePanelOpen(!mediaQuery.matches);
+      setIsStudyPanelOpen(!mediaQuery.matches);
+    };
+
+    syncPanelDefaults();
+    mediaQuery.addEventListener("change", syncPanelDefaults);
+
+    return () => {
+      mediaQuery.removeEventListener("change", syncPanelDefaults);
+    };
   }, []);
 
   useEffect(() => {
@@ -666,93 +683,130 @@ function App() {
     hasDocuments: documents.length > 0,
     hasReadyNotes,
   });
+  const appShellClassName = [
+    "app-shell",
+    isCoursePanelOpen ? "course-panel-open" : "course-panel-collapsed",
+    isStudyPanelOpen ? "study-panel-open" : "study-panel-collapsed",
+  ].join(" ");
 
   return (
-    <main className="app-shell">
-      <aside className="sidebar" aria-label="Course and chat navigation">
-        <div className="brand-block">
-          <h1>QueryLearn</h1>
-          <p>Study with your course notes.</p>
+    <main className={appShellClassName}>
+      <aside
+        className={isCoursePanelOpen ? "sidebar" : "sidebar shell-panel-collapsed"}
+        aria-label="Course and chat navigation"
+      >
+        <div className="side-panel-chrome">
+          {isCoursePanelOpen && (
+            <div className="brand-block">
+              <h1>QueryLearn</h1>
+              <p>Study with your course notes.</p>
+            </div>
+          )}
+          <button
+            className="panel-toggle"
+            type="button"
+            onClick={() => setIsCoursePanelOpen((isOpen) => !isOpen)}
+            aria-expanded={isCoursePanelOpen}
+            aria-controls="course-navigation-content"
+            aria-label={
+              isCoursePanelOpen ? "Collapse course navigation" : "Expand course navigation"
+            }
+          >
+            {isCoursePanelOpen ? "Hide" : "Open"}
+          </button>
         </div>
 
-        <section className="panel sidebar-panel">
-          <div className="section-heading">
-            <h2>Courses</h2>
-            <span className={`status-pill status-${backendStatus}`}>
-              API {backendStatus}
-            </span>
-          </div>
-          <form className="compact-form" onSubmit={handleCreateCourse}>
-            <label htmlFor="course-name">Course name</label>
-            <div className="inline-control">
-              <input
-                id="course-name"
-                type="text"
-                value={courseName}
-                onChange={(event) => setCourseName(event.target.value)}
-                placeholder="Chemistry 101"
-              />
-              <button type="submit" disabled={isCreatingCourse}>
-                {isCreatingCourse ? "Adding..." : "Add"}
-              </button>
+        <div
+          id="course-navigation-content"
+          className="side-panel-content"
+          hidden={!isCoursePanelOpen}
+        >
+          <section className="panel sidebar-panel">
+            <div className="section-heading">
+              <h2>Courses</h2>
+              <span className={`status-pill status-${backendStatus}`}>
+                API {backendStatus}
+              </span>
             </div>
-          </form>
-          {courseError && <p className="error-text">{courseError}</p>}
-          <ul className="course-tree">
-            {courses.map((course) => (
-              <li className="course-node" key={course.id}>
-                <button
-                  className={course.id === selectedCourseId ? "course-item selected" : "course-item"}
-                  type="button"
-                  onClick={() => handleSelectCourse(course.id)}
-                  aria-current={course.id === selectedCourseId ? "page" : undefined}
-                  aria-expanded={course.id === selectedCourseId}
-                >
-                  <span>{course.name}</span>
+            <form className="compact-form" onSubmit={handleCreateCourse}>
+              <label htmlFor="course-name">Course name</label>
+              <div className="inline-control">
+                <input
+                  id="course-name"
+                  type="text"
+                  value={courseName}
+                  onChange={(event) => setCourseName(event.target.value)}
+                  placeholder="Chemistry 101"
+                />
+                <button type="submit" disabled={isCreatingCourse}>
+                  {isCreatingCourse ? "Adding..." : "Add"}
                 </button>
-                {course.id === selectedCourseId && (
-                  <div className="chat-branch">
-                    <form className="nested-form" onSubmit={handleCreateChat}>
-                      <label htmlFor="chat-title">New chat</label>
-                      <div className="inline-control">
-                        <input
-                          id="chat-title"
-                          type="text"
-                          value={chatTitle}
-                          onChange={(event) => setChatTitle(event.target.value)}
-                          placeholder="Midterm review"
-                          disabled={!selectedCourseId}
-                        />
-                        <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
-                          {isCreatingChat ? "Adding..." : "Add"}
-                        </button>
-                      </div>
-                    </form>
-                    {chatError && <p className="error-text">{chatError}</p>}
-                    {chats.length === 0 && !chatError && (
-                      <p className="muted-text">No chats yet.</p>
-                    )}
-                    <ul className="chat-list" aria-label={`Chats in ${course.name}`}>
-                      {chats.map((chat) => (
-                        <li key={chat.id}>
-                          <button
-                            className={chat.id === selectedChatId ? "chat-item selected" : "chat-item"}
-                            type="button"
-                            onClick={() => handleSelectChat(chat.id)}
-                            aria-current={chat.id === selectedChatId ? "page" : undefined}
-                          >
-                            <span>{chat.title}</span>
+              </div>
+            </form>
+            {courseError && <p className="error-text">{courseError}</p>}
+            <ul className="course-tree">
+              {courses.map((course) => (
+                <li className="course-node" key={course.id}>
+                  <button
+                    className={course.id === selectedCourseId ? "course-item selected" : "course-item"}
+                    type="button"
+                    onClick={() => handleSelectCourse(course.id)}
+                    aria-current={course.id === selectedCourseId ? "page" : undefined}
+                    aria-expanded={course.id === selectedCourseId}
+                  >
+                    <span>{course.name}</span>
+                  </button>
+                  {course.id === selectedCourseId && (
+                    <div className="chat-branch">
+                      <form className="nested-form" onSubmit={handleCreateChat}>
+                        <label htmlFor="chat-title">New chat</label>
+                        <div className="inline-control">
+                          <input
+                            id="chat-title"
+                            type="text"
+                            value={chatTitle}
+                            onChange={(event) => setChatTitle(event.target.value)}
+                            placeholder="Midterm review"
+                            disabled={!selectedCourseId}
+                          />
+                          <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
+                            {isCreatingChat ? "Adding..." : "Add"}
                           </button>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
-          {!selectedCourseId && <p className="muted-text">Choose a course to see its chats.</p>}
-        </section>
+                        </div>
+                      </form>
+                      {chatError && <p className="error-text">{chatError}</p>}
+                      {chats.length === 0 && !chatError && (
+                        <p className="muted-text">No chats yet.</p>
+                      )}
+                      <ul className="chat-list" aria-label={`Chats in ${course.name}`}>
+                        {chats.map((chat) => (
+                          <li key={chat.id}>
+                            <button
+                              className={chat.id === selectedChatId ? "chat-item selected" : "chat-item"}
+                              type="button"
+                              onClick={() => handleSelectChat(chat.id)}
+                              aria-current={chat.id === selectedChatId ? "page" : undefined}
+                            >
+                              <span>{chat.title}</span>
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </li>
+              ))}
+            </ul>
+            {!selectedCourseId && <p className="muted-text">Choose a course to see its chats.</p>}
+          </section>
+        </div>
+
+        {!isCoursePanelOpen && (
+          <div className="rail-summary" aria-hidden="true">
+            <strong>{courses.length}</strong>
+            <span>courses</span>
+          </div>
+        )}
       </aside>
 
       <section className="chat-workspace" aria-label="Study chat">
@@ -858,129 +912,156 @@ function App() {
         </form>
       </section>
 
-      <aside className="context-panel" aria-label="Course notes and sources">
-        <section className="panel sources-panel">
-          <div className="section-heading">
-            <h2>Sources</h2>
-          </div>
-          {!latestAnswerResponse && (
-            <div className="sources-empty">
-              <strong>No answer sources yet</strong>
-              <p>After QueryLearn answers, the notes it used will appear here.</p>
+      <aside
+        className={isStudyPanelOpen ? "context-panel" : "context-panel shell-panel-collapsed"}
+        aria-label="Course notes and sources"
+      >
+        <div className="side-panel-chrome context-chrome">
+          {isStudyPanelOpen && (
+            <div className="side-panel-title">
+              <h2>Study Context</h2>
+              <p>{formatSourceCount(latestAnswerResponse?.evidence.length ?? 0)} available</p>
             </div>
           )}
-          {latestAnswerResponse && (
-            <div className="answer-preview">
-              <p className="answer-metadata">
-                Latest answer - {formatSourceCount(latestAnswerResponse.evidence.length)} -{" "}
-                {formatAnswerModelChoice(latestAnswerResponse.model_choice)}
-              </p>
-              <ul className="source-card-list">
-                {latestAnswerResponse.evidence.map((evidence) => (
-                  <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
-                    <div className="source-card-heading">
-                      <span className="citation-marker">[{evidence.citation_number}]</span>
-                      <div>
-                        <strong>{evidence.document_filename}</strong>
-                        <span>{formatEvidenceLocation(evidence)}</span>
-                      </div>
-                    </div>
-                    <p>{evidence.text}</p>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </section>
+          <button
+            className="panel-toggle"
+            type="button"
+            onClick={() => setIsStudyPanelOpen((isOpen) => !isOpen)}
+            aria-expanded={isStudyPanelOpen}
+            aria-controls="study-context-content"
+            aria-label={isStudyPanelOpen ? "Collapse study context" : "Expand study context"}
+          >
+            {isStudyPanelOpen ? "Hide" : "Open"}
+          </button>
+        </div>
 
-        <section className="panel notes-panel">
-          <div className="section-heading">
-            <h2>Notes</h2>
-            <div className="heading-actions">
-              <span>
-                {readyDocumentCount}/{documents.length} ready
-              </span>
-              <button
-                className="collapse-button"
-                type="button"
-                onClick={() => setIsNotesPanelOpen((isOpen) => !isOpen)}
-                aria-expanded={isNotesPanelOpen}
-                aria-controls="notes-panel-content"
-              >
-                {isNotesPanelOpen ? "Hide" : "Show"}
-              </button>
+        <div
+          id="study-context-content"
+          className="side-panel-content context-panel-content"
+          hidden={!isStudyPanelOpen}
+        >
+          <section className="panel sources-panel">
+            <div className="section-heading">
+              <h2>Sources</h2>
             </div>
-          </div>
-          <div id="notes-panel-content" className="notes-panel-content" hidden={!isNotesPanelOpen}>
-            <form className="upload-form notes-upload" onSubmit={handleUploadDocument}>
-              <label htmlFor="document-file">Add course notes</label>
-              <input
-                id="document-file"
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
-                onChange={handleDocumentFileChange}
-                disabled={!selectedCourseId || isUploadingDocument}
-              />
-              <button
-                type="submit"
-                disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}
-              >
-                {isUploadingDocument ? "Uploading..." : "Upload"}
-              </button>
-            </form>
-            {documentError && <p className="error-text">{documentError}</p>}
-            {prepareError && <p className="error-text">{prepareError}</p>}
-            {!selectedCourseId && <p className="muted-text">Choose a course to manage notes.</p>}
-            {selectedCourseId && documents.length === 0 && !documentError && (
-              <div className="notes-empty">
-                <strong>No notes yet</strong>
-                <p>Upload a file, prepare it, then ask questions in chat.</p>
+            {!latestAnswerResponse && (
+              <div className="sources-empty">
+                <strong>No answer sources yet</strong>
+                <p>After QueryLearn answers, the notes it used will appear here.</p>
               </div>
             )}
-            <ul className="document-list">
-              {documents.map((document) => {
-                const readiness = getDocumentReadiness(document, preparingDocumentId);
+            {latestAnswerResponse && (
+              <div className="answer-preview">
+                <p className="answer-metadata">
+                  Latest answer - {formatSourceCount(latestAnswerResponse.evidence.length)} -{" "}
+                  {formatAnswerModelChoice(latestAnswerResponse.model_choice)}
+                </p>
+                <ul className="source-card-list">
+                  {latestAnswerResponse.evidence.map((evidence) => (
+                    <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                      <div className="source-card-heading">
+                        <span className="citation-marker">[{evidence.citation_number}]</span>
+                        <div>
+                          <strong>{evidence.document_filename}</strong>
+                          <span>{formatEvidenceLocation(evidence)}</span>
+                        </div>
+                      </div>
+                      <p>{evidence.text}</p>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </section>
 
-                return (
-                  <li className="document-row" key={document.id}>
-                    <button
-                      className={
-                        document.id === selectedDocumentId
-                          ? "document-summary selected"
-                          : "document-summary"
-                      }
-                      type="button"
-                      onClick={() => handleSelectDocument(document.id)}
-                    >
-                      <span className="document-title-row">
-                        <strong>{document.original_filename}</strong>
-                        <span className={`readiness-badge ${readiness.className}`}>
-                          {readiness.label}
+          <section className="panel notes-panel">
+            <div className="section-heading">
+              <h2>Notes</h2>
+              <div className="heading-actions">
+                <span>
+                  {readyDocumentCount}/{documents.length} ready
+                </span>
+                <button
+                  className="collapse-button"
+                  type="button"
+                  onClick={() => setIsNotesPanelOpen((isOpen) => !isOpen)}
+                  aria-expanded={isNotesPanelOpen}
+                  aria-controls="notes-panel-content"
+                >
+                  {isNotesPanelOpen ? "Hide" : "Show"}
+                </button>
+              </div>
+            </div>
+            <div id="notes-panel-content" className="notes-panel-content" hidden={!isNotesPanelOpen}>
+              <form className="upload-form notes-upload" onSubmit={handleUploadDocument}>
+                <label htmlFor="document-file">Add course notes</label>
+                <input
+                  id="document-file"
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
+                  onChange={handleDocumentFileChange}
+                  disabled={!selectedCourseId || isUploadingDocument}
+                />
+                <button
+                  type="submit"
+                  disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}
+                >
+                  {isUploadingDocument ? "Uploading..." : "Upload"}
+                </button>
+              </form>
+              {documentError && <p className="error-text">{documentError}</p>}
+              {prepareError && <p className="error-text">{prepareError}</p>}
+              {!selectedCourseId && <p className="muted-text">Choose a course to manage notes.</p>}
+              {selectedCourseId && documents.length === 0 && !documentError && (
+                <div className="notes-empty">
+                  <strong>No notes yet</strong>
+                  <p>Upload a file, prepare it, then ask questions in chat.</p>
+                </div>
+              )}
+              <ul className="document-list">
+                {documents.map((document) => {
+                  const readiness = getDocumentReadiness(document, preparingDocumentId);
+
+                  return (
+                    <li className="document-row" key={document.id}>
+                      <button
+                        className={
+                          document.id === selectedDocumentId
+                            ? "document-summary selected"
+                            : "document-summary"
+                        }
+                        type="button"
+                        onClick={() => handleSelectDocument(document.id)}
+                      >
+                        <span className="document-title-row">
+                          <strong>{document.original_filename}</strong>
+                          <span className={`readiness-badge ${readiness.className}`}>
+                            {readiness.label}
+                          </span>
                         </span>
-                      </span>
-                      <span>{readiness.detail}</span>
-                      <span>
-                        {document.file_extension} - {formatFileSize(document.file_size)}
-                      </span>
-                      {document.error && <span className="document-error">Error: {document.error}</span>}
-                    </button>
-                    <button
-                      className="secondary-action"
-                      type="button"
-                      onClick={() => handlePrepareDocument(document.id)}
-                      disabled={preparingDocumentId === document.id}
-                    >
-                      {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          </div>
-        </section>
+                        <span>{readiness.detail}</span>
+                        <span>
+                          {document.file_extension} - {formatFileSize(document.file_size)}
+                        </span>
+                        {document.error && <span className="document-error">Error: {document.error}</span>}
+                      </button>
+                      <button
+                        className="secondary-action"
+                        type="button"
+                        onClick={() => handlePrepareDocument(document.id)}
+                        disabled={preparingDocumentId === document.id}
+                      >
+                        {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </section>
 
-        <section className="panel secondary-panel">
+          <section className="panel secondary-panel">
           <div className="section-heading">
             <h2>Source Check</h2>
             <div className="heading-actions">
@@ -1035,9 +1116,9 @@ function App() {
               </ul>
             )}
           </div>
-        </section>
+          </section>
 
-        <section className="panel debug-panel">
+          <section className="panel debug-panel">
           <div className="section-heading">
             <h2>Note Inspection</h2>
           </div>
@@ -1077,7 +1158,19 @@ function App() {
               </ul>
             </details>
           )}
-        </section>
+          </section>
+        </div>
+
+        {!isStudyPanelOpen && (
+          <div className="rail-summary" aria-hidden="true">
+            <strong>{latestAnswerResponse?.evidence.length ?? 0}</strong>
+            <span>sources</span>
+            <strong>
+              {readyDocumentCount}/{documents.length}
+            </strong>
+            <span>ready</span>
+          </div>
+        )}
       </aside>
     </main>
   );
