@@ -632,186 +632,272 @@ function App() {
     }
   }
 
+  const selectedCourse = courses.find((course) => course.id === selectedCourseId);
+  const selectedChat = chats.find((chat) => chat.id === selectedChatId);
+  const readyDocumentCount = documents.filter((document) => document.indexed_chunk_count > 0).length;
+
   return (
-    <main>
-      <h1>QueryLearn</h1>
-      <p>RAG-powered learning assistant</p>
+    <main className="app-shell">
+      <aside className="sidebar" aria-label="Course and chat navigation">
+        <div className="brand-block">
+          <h1>QueryLearn</h1>
+          <p>Study with your course notes.</p>
+        </div>
 
-      <section>
-        <h2>Backend connection</h2>
-        <p>Status: {backendStatus}</p>
-      </section>
-
-      <section>
-        <h2>Courses</h2>
-        <form onSubmit={handleCreateCourse}>
-          <label htmlFor="course-name">Course name</label>
-          <input
-            id="course-name"
-            type="text"
-            value={courseName}
-            onChange={(event) => setCourseName(event.target.value)}
-            placeholder="Chemistry 101"
-          />
-          <button type="submit" disabled={isCreatingCourse}>
-            {isCreatingCourse ? "Adding..." : "Add course"}
-          </button>
-        </form>
-        {courseError && <p>{courseError}</p>}
-        <ul>
-          {courses.map((course) => (
-            <li key={course.id}>
-              <button type="button" onClick={() => handleSelectCourse(course.id)}>
-                {course.name}
-                {course.id === selectedCourseId ? " (selected)" : ""}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2>Chats</h2>
-        <form onSubmit={handleCreateChat}>
-          <label htmlFor="chat-title">Chat title</label>
-          <input
-            id="chat-title"
-            type="text"
-            value={chatTitle}
-            onChange={(event) => setChatTitle(event.target.value)}
-            placeholder="Midterm review"
-            disabled={!selectedCourseId}
-          />
-          <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
-            {isCreatingChat ? "Adding..." : "Add chat"}
-          </button>
-        </form>
-        {chatError && <p>{chatError}</p>}
-        {!selectedCourseId && <p>Select a course to view chats.</p>}
-        {selectedCourseId && chats.length === 0 && !chatError && <p>No chats for this course yet.</p>}
-        <ul>
-          {chats.map((chat) => (
-            <li key={chat.id}>
-              <button type="button" onClick={() => handleSelectChat(chat.id)}>
-                {chat.title}
-                {chat.id === selectedChatId ? " (selected)" : ""}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section>
-        <h2>Documents</h2>
-        <form onSubmit={handleUploadDocument}>
-          <label htmlFor="document-file">Document</label>
-          <input
-            id="document-file"
-            ref={fileInputRef}
-            type="file"
-            accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
-            onChange={handleDocumentFileChange}
-            disabled={!selectedCourseId || isUploadingDocument}
-          />
-          <button type="submit" disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}>
-            {isUploadingDocument ? "Uploading..." : "Upload document"}
-          </button>
-        </form>
-        {documentError && <p>{documentError}</p>}
-        {prepareError && <p>{prepareError}</p>}
-        {!selectedCourseId && <p>Select a course to view documents.</p>}
-        {selectedCourseId && documents.length === 0 && !documentError && <p>No documents for this course yet.</p>}
-        <ul>
-          {documents.map((document) => (
-            <li className="document-row" key={document.id}>
-              <button
-                className="document-summary"
-                type="button"
-                onClick={() => handleSelectDocument(document.id)}
-              >
-                <strong>{document.original_filename}</strong>{" "}
-                <span>
-                  {document.status} - {formatParsedSectionCount(document.parsed_section_count)} -{" "}
-                  {formatChunkCount(document.chunk_count)} -{" "}
-                  {formatIndexedChunkCount(document.indexed_chunk_count)} -{" "}
-                  {document.file_extension} - {formatFileSize(document.file_size)}
-                  {document.id === selectedDocumentId ? " - selected" : ""}
-                </span>
-                {document.error && <span className="document-error">Error: {document.error}</span>}
-              </button>
-              <button
-                type="button"
-                onClick={() => handlePrepareDocument(document.id)}
-                disabled={preparingDocumentId === document.id}
-              >
-                {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
-              </button>
-            </li>
-          ))}
-        </ul>
-        {sectionError && <p>{sectionError}</p>}
-        {selectedDocumentId && parsedSections.length === 0 && !sectionError && (
-          <p>No parsed sections for this document yet.</p>
-        )}
-        {parsedSections.length > 0 && (
-          <div className="section-preview">
-            <h3>Parsed sections</h3>
-            <ul>
-              {parsedSections.map((section) => (
-                <li key={section.id}>
-                  <strong>
-                    {section.label} ({section.kind})
-                  </strong>
-                  <pre>{section.text}</pre>
-                </li>
-              ))}
-            </ul>
+        <section className="panel sidebar-panel">
+          <div className="section-heading">
+            <h2>Courses</h2>
+            <span className={`status-pill status-${backendStatus}`}>
+              API {backendStatus}
+            </span>
           </div>
-        )}
-        {chunkError && <p>{chunkError}</p>}
-        {selectedDocumentId && chunks.length === 0 && !chunkError && (
-          <p>No chunks for this document yet.</p>
-        )}
-        {chunks.length > 0 && (
-          <div className="chunk-preview">
-            <h3>Chunks</h3>
-            <ul>
-              {chunks.map((chunk) => (
-                <li key={chunk.id}>
-                  <strong>Chunk {chunk.chunk_index + 1}</strong>
-                  <pre>{chunk.text}</pre>
-                </li>
-              ))}
-            </ul>
+          <form className="compact-form" onSubmit={handleCreateCourse}>
+            <label htmlFor="course-name">Course name</label>
+            <div className="inline-control">
+              <input
+                id="course-name"
+                type="text"
+                value={courseName}
+                onChange={(event) => setCourseName(event.target.value)}
+                placeholder="Chemistry 101"
+              />
+              <button type="submit" disabled={isCreatingCourse}>
+                {isCreatingCourse ? "Adding..." : "Add"}
+              </button>
+            </div>
+          </form>
+          {courseError && <p className="error-text">{courseError}</p>}
+          <ul className="nav-list">
+            {courses.map((course) => (
+              <li key={course.id}>
+                <button
+                  className={course.id === selectedCourseId ? "nav-item selected" : "nav-item"}
+                  type="button"
+                  onClick={() => handleSelectCourse(course.id)}
+                >
+                  {course.name}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel sidebar-panel">
+          <div className="section-heading">
+            <h2>Chats</h2>
           </div>
-        )}
+          <form className="compact-form" onSubmit={handleCreateChat}>
+            <label htmlFor="chat-title">Chat title</label>
+            <div className="inline-control">
+              <input
+                id="chat-title"
+                type="text"
+                value={chatTitle}
+                onChange={(event) => setChatTitle(event.target.value)}
+                placeholder="Midterm review"
+                disabled={!selectedCourseId}
+              />
+              <button type="submit" disabled={!selectedCourseId || isCreatingChat}>
+                {isCreatingChat ? "Adding..." : "Add"}
+              </button>
+            </div>
+          </form>
+          {chatError && <p className="error-text">{chatError}</p>}
+          {!selectedCourseId && <p className="muted-text">Choose a course to see its chats.</p>}
+          {selectedCourseId && chats.length === 0 && !chatError && (
+            <p className="muted-text">No chats yet.</p>
+          )}
+          <ul className="nav-list">
+            {chats.map((chat) => (
+              <li key={chat.id}>
+                <button
+                  className={chat.id === selectedChatId ? "nav-item selected" : "nav-item"}
+                  type="button"
+                  onClick={() => handleSelectChat(chat.id)}
+                >
+                  {chat.title}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      </aside>
+
+      <section className="chat-workspace" aria-label="Study chat">
+        <header className="chat-header">
+          <div>
+            <p className="eyebrow">{selectedCourse?.name ?? "No course selected"}</p>
+            <h2>{selectedChat?.title ?? "Start a study chat"}</h2>
+          </div>
+          <div className="readiness-summary" aria-label="Course note readiness">
+            <span>{documents.length} notes</span>
+            <span>{readyDocumentCount} ready</span>
+          </div>
+        </header>
+
+        <div className="message-list">
+          {!selectedChatId && (
+            <div className="empty-state">
+              <h3>Choose a chat to start studying.</h3>
+              <p>Select or create a course chat, then ask questions grounded in prepared notes.</p>
+            </div>
+          )}
+          {selectedChatId && messages.length === 0 && !messageError && (
+            <div className="empty-state">
+              <h3>Ask your first question.</h3>
+              <p>Prepared notes will be used as sources for the answer.</p>
+            </div>
+          )}
+          {messages.map((message) => (
+            <article className={`message-bubble ${message.role}`} key={message.id}>
+              <span className="message-role">{message.role === "assistant" ? "QueryLearn" : "You"}</span>
+              <p>{message.content}</p>
+            </article>
+          ))}
+          {latestAnswerResponse && (
+            <div className="latest-answer-strip">
+              <span>
+                Latest answer used {latestAnswerResponse.evidence.length} sources with{" "}
+                {formatAnswerModelChoice(latestAnswerResponse.model_choice)}.
+              </span>
+            </div>
+          )}
+        </div>
+
+        <form className="composer" onSubmit={handleCreateMessage}>
+          <div className="composer-settings">
+            <label htmlFor="answer-mode">Answer mode</label>
+            <select
+              id="answer-mode"
+              value={answerMode}
+              onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
+              disabled={!selectedChatId || isCreatingMessage}
+            >
+              <option value="supplemented">Notes + AI explanation</option>
+              <option value="notes_only">Notes only</option>
+            </select>
+            <label htmlFor="answer-model">Answer model</label>
+            <select
+              id="answer-model"
+              value={answerModelChoice}
+              onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
+              disabled={!selectedChatId || isCreatingMessage}
+            >
+              <option value="economy">Economy</option>
+              <option value="fast">Fast</option>
+              <option value="balanced">Balanced</option>
+              <option value="deep">Deep</option>
+            </select>
+          </div>
+          <label htmlFor="message-content">Message</label>
+          <div className="composer-input-row">
+            <textarea
+              id="message-content"
+              value={messageContent}
+              onChange={(event) => setMessageContent(event.target.value)}
+              placeholder="Ask about your notes..."
+              disabled={!selectedChatId}
+              rows={2}
+            />
+            <button type="submit" disabled={!selectedChatId || isCreatingMessage}>
+              {isCreatingMessage ? "Answering..." : "Ask"}
+            </button>
+          </div>
+          {messageError && <p className="error-text">{messageError}</p>}
+        </form>
       </section>
 
-      <section>
-        <h2>Retrieved Sources</h2>
-        <form onSubmit={handleRetrieveSources}>
-          <label htmlFor="retrieval-question">Question</label>
-          <input
-            id="retrieval-question"
-            type="text"
-            value={retrievalQuestion}
-            onChange={(event) => setRetrievalQuestion(event.target.value)}
-            placeholder="What is a scalar variable?"
-            disabled={!selectedCourseId || isRetrieving}
-          />
-          <button type="submit" disabled={!selectedCourseId || isRetrieving}>
-            {isRetrieving ? "Retrieving..." : "Retrieve sources"}
-          </button>
-        </form>
-        {retrievalError && <p>{retrievalError}</p>}
-        {!selectedCourseId && <p>Select a course to retrieve sources.</p>}
-        {selectedCourseId && retrievalResults.length === 0 && !retrievalError && (
-          <p>No retrieved sources yet.</p>
-        )}
-        {retrievalResults.length > 0 && (
-          <div className="retrieval-preview">
-            <h3>Top source chunks</h3>
-            <ul>
+      <aside className="context-panel" aria-label="Course notes and sources">
+        <section className="panel">
+          <div className="section-heading">
+            <h2>Course Notes</h2>
+            <span>{documents.length} files</span>
+          </div>
+          <form className="upload-form" onSubmit={handleUploadDocument}>
+            <label htmlFor="document-file">Upload notes</label>
+            <input
+              id="document-file"
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
+              onChange={handleDocumentFileChange}
+              disabled={!selectedCourseId || isUploadingDocument}
+            />
+            <button
+              type="submit"
+              disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}
+            >
+              {isUploadingDocument ? "Uploading..." : "Upload"}
+            </button>
+          </form>
+          {documentError && <p className="error-text">{documentError}</p>}
+          {prepareError && <p className="error-text">{prepareError}</p>}
+          {!selectedCourseId && <p className="muted-text">Choose a course to manage notes.</p>}
+          {selectedCourseId && documents.length === 0 && !documentError && (
+            <p className="muted-text">Upload notes, then prepare them for answering.</p>
+          )}
+          <ul className="document-list">
+            {documents.map((document) => (
+              <li className="document-row" key={document.id}>
+                <button
+                  className={
+                    document.id === selectedDocumentId
+                      ? "document-summary selected"
+                      : "document-summary"
+                  }
+                  type="button"
+                  onClick={() => handleSelectDocument(document.id)}
+                >
+                  <strong>{document.original_filename}</strong>
+                  <span>
+                    {document.status} - {formatParsedSectionCount(document.parsed_section_count)} -{" "}
+                    {formatChunkCount(document.chunk_count)} -{" "}
+                    {formatIndexedChunkCount(document.indexed_chunk_count)}
+                  </span>
+                  <span>
+                    {document.file_extension} - {formatFileSize(document.file_size)}
+                  </span>
+                  {document.error && <span className="document-error">Error: {document.error}</span>}
+                </button>
+                <button
+                  className="secondary-action"
+                  type="button"
+                  onClick={() => handlePrepareDocument(document.id)}
+                  disabled={preparingDocumentId === document.id}
+                >
+                  {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="panel">
+          <div className="section-heading">
+            <h2>Source Check</h2>
+          </div>
+          <form className="compact-form" onSubmit={handleRetrieveSources}>
+            <label htmlFor="retrieval-question">Question</label>
+            <div className="inline-control">
+              <input
+                id="retrieval-question"
+                type="text"
+                value={retrievalQuestion}
+                onChange={(event) => setRetrievalQuestion(event.target.value)}
+                placeholder="Preview matching notes"
+                disabled={!selectedCourseId || isRetrieving}
+              />
+              <button type="submit" disabled={!selectedCourseId || isRetrieving}>
+                {isRetrieving ? "Finding..." : "Find"}
+              </button>
+            </div>
+          </form>
+          {retrievalError && <p className="error-text">{retrievalError}</p>}
+          {retrievalResults.length === 0 && !retrievalError && (
+            <p className="muted-text">Source previews live here when you need to inspect retrieval.</p>
+          )}
+          {retrievalResults.length > 0 && (
+            <ul className="preview-list">
               {retrievalResults.map((result) => (
                 <li key={result.chunk_id}>
                   <strong>{result.document_filename}</strong>
@@ -823,76 +909,76 @@ function App() {
                 </li>
               ))}
             </ul>
-          </div>
-        )}
-      </section>
+          )}
+        </section>
 
-      <section>
-        <h2>Messages</h2>
-        <form onSubmit={handleCreateMessage}>
-          <label htmlFor="answer-mode">Answer mode</label>
-          <select
-            id="answer-mode"
-            value={answerMode}
-            onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
-            disabled={!selectedChatId || isCreatingMessage}
-          >
-            <option value="supplemented">Notes + AI explanation</option>
-            <option value="notes_only">Notes only</option>
-          </select>
-          <label htmlFor="answer-model">Answer model</label>
-          <select
-            id="answer-model"
-            value={answerModelChoice}
-            onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
-            disabled={!selectedChatId || isCreatingMessage}
-          >
-            <option value="economy">Economy</option>
-            <option value="fast">Fast</option>
-            <option value="balanced">Balanced</option>
-            <option value="deep">Deep</option>
-          </select>
-          <label htmlFor="message-content">Message</label>
-          <input
-            id="message-content"
-            type="text"
-            value={messageContent}
-            onChange={(event) => setMessageContent(event.target.value)}
-            placeholder="Ask a question"
-            disabled={!selectedChatId}
-          />
-          <button type="submit" disabled={!selectedChatId || isCreatingMessage}>
-            {isCreatingMessage ? "Answering..." : "Ask"}
-          </button>
-        </form>
-        {messageError && <p>{messageError}</p>}
-        {!selectedChatId && <p>Select a chat to view messages.</p>}
-        {selectedChatId && messages.length === 0 && !messageError && <p>No messages in this chat yet.</p>}
-        <ul>
-          {messages.map((message) => (
-            <li key={message.id}>
-              <strong>{message.role}:</strong> {message.content}
-            </li>
-          ))}
-        </ul>
-        {latestAnswerResponse && (
-          <div className="answer-preview">
-            <h3>Sources for latest answer</h3>
-            <p className="answer-metadata">
-              Answered with {formatAnswerModelChoice(latestAnswerResponse.model_choice)} (
-              {latestAnswerResponse.model})
-            </p>
-            <ul>
-              {latestAnswerResponse.evidence.map((evidence) => (
-                <li key={`${evidence.chunk_id}-${evidence.citation_number}`}>
-                  <strong>{formatCitationLabel(evidence)}</strong>
-                  <pre>{evidence.text}</pre>
-                </li>
-              ))}
-            </ul>
+        <section className="panel">
+          <div className="section-heading">
+            <h2>Latest Sources</h2>
           </div>
-        )}
-      </section>
+          {!latestAnswerResponse && (
+            <p className="muted-text">Sources for the latest answer will appear here.</p>
+          )}
+          {latestAnswerResponse && (
+            <div className="answer-preview">
+              <p className="answer-metadata">
+                Answered with {formatAnswerModelChoice(latestAnswerResponse.model_choice)} (
+                {latestAnswerResponse.model})
+              </p>
+              <ul className="preview-list">
+                {latestAnswerResponse.evidence.map((evidence) => (
+                  <li key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                    <strong>{formatCitationLabel(evidence)}</strong>
+                    <pre>{evidence.text}</pre>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+
+        <section className="panel debug-panel">
+          <div className="section-heading">
+            <h2>Prepared Text</h2>
+          </div>
+          {sectionError && <p className="error-text">{sectionError}</p>}
+          {chunkError && <p className="error-text">{chunkError}</p>}
+          {selectedDocumentId && parsedSections.length === 0 && !sectionError && (
+            <p className="muted-text">No parsed preview for this document yet.</p>
+          )}
+          {parsedSections.length > 0 && (
+            <details>
+              <summary>Parsed sections ({parsedSections.length})</summary>
+              <ul className="preview-list">
+                {parsedSections.map((section) => (
+                  <li key={section.id}>
+                    <strong>
+                      {section.label} ({section.kind})
+                    </strong>
+                    <pre>{section.text}</pre>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+          {selectedDocumentId && chunks.length === 0 && !chunkError && (
+            <p className="muted-text">No chunk preview for this document yet.</p>
+          )}
+          {chunks.length > 0 && (
+            <details>
+              <summary>Chunks ({chunks.length})</summary>
+              <ul className="preview-list">
+                {chunks.map((chunk) => (
+                  <li key={chunk.id}>
+                    <strong>Chunk {chunk.chunk_index + 1}</strong>
+                    <pre>{chunk.text}</pre>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+        </section>
+      </aside>
     </main>
   );
 }
