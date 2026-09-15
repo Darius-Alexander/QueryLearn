@@ -123,6 +123,15 @@ type DocumentReadiness = {
   className: string;
 };
 
+type ChatGuidance = {
+  kicker: string;
+  title: string;
+  description: string;
+  placeholder: string;
+  composerHint: string;
+  className: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
@@ -599,6 +608,11 @@ function App() {
       return;
     }
 
+    if (readyDocumentCount === 0) {
+      setMessageError("Prepare at least one note before asking a question.");
+      return;
+    }
+
     setMessageError("");
     setIsCreatingMessage(true);
 
@@ -643,6 +657,15 @@ function App() {
   const selectedCourse = courses.find((course) => course.id === selectedCourseId);
   const selectedChat = chats.find((chat) => chat.id === selectedChatId);
   const readyDocumentCount = documents.filter((document) => document.indexed_chunk_count > 0).length;
+  const hasReadyNotes = readyDocumentCount > 0;
+  const isComposerReady = Boolean(selectedChatId && hasReadyNotes);
+  const canAskQuestion = Boolean(isComposerReady && !isCreatingMessage);
+  const chatGuidance = getChatGuidance({
+    hasSelectedCourse: Boolean(selectedCourseId),
+    hasSelectedChat: Boolean(selectedChatId),
+    hasDocuments: documents.length > 0,
+    hasReadyNotes,
+  });
 
   return (
     <main className="app-shell">
@@ -740,21 +763,16 @@ function App() {
           </div>
           <div className="readiness-summary" aria-label="Course note readiness">
             <span>{documents.length} notes</span>
-            <span>{readyDocumentCount} ready</span>
+            <span className={hasReadyNotes ? "is-ready" : "is-pending"}>{readyDocumentCount} ready</span>
           </div>
         </header>
 
         <div className="message-list">
-          {!selectedChatId && (
-            <div className="empty-state">
-              <h3>Choose a chat to start studying.</h3>
-              <p>Select or create a course chat, then ask questions grounded in prepared notes.</p>
-            </div>
-          )}
-          {selectedChatId && messages.length === 0 && !messageError && (
-            <div className="empty-state">
-              <h3>Ask your first question.</h3>
-              <p>Prepared notes will be used as sources for the answer.</p>
+          {messages.length === 0 && !messageError && (
+            <div className={`empty-state ${chatGuidance.className}`}>
+              <span className="empty-state-kicker">{chatGuidance.kicker}</span>
+              <h3>{chatGuidance.title}</h3>
+              <p>{chatGuidance.description}</p>
             </div>
           )}
           {messages.map((message) => (
@@ -775,7 +793,7 @@ function App() {
           )}
         </div>
 
-        <form className="composer" onSubmit={handleCreateMessage}>
+        <form className={isComposerReady ? "composer" : "composer composer-unavailable"} onSubmit={handleCreateMessage}>
           <div className="composer-settings">
             <div className="setting-field">
               <label htmlFor="answer-mode">Answer mode</label>
@@ -783,7 +801,7 @@ function App() {
                 id="answer-mode"
                 value={answerMode}
                 onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
-                disabled={!selectedChatId || isCreatingMessage}
+                disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
               >
                 <option value="supplemented">Notes + AI explanation</option>
                 <option value="notes_only">Notes only</option>
@@ -795,7 +813,7 @@ function App() {
                 id="answer-model"
                 value={answerModelChoice}
                 onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
-                disabled={!selectedChatId || isCreatingMessage}
+                disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
               >
                 <option value="economy">Economy</option>
                 <option value="fast">Fast</option>
@@ -810,14 +828,15 @@ function App() {
               id="message-content"
               value={messageContent}
               onChange={(event) => setMessageContent(event.target.value)}
-              placeholder="Ask about your notes..."
-              disabled={!selectedChatId}
+              placeholder={chatGuidance.placeholder}
+              disabled={!canAskQuestion}
               rows={2}
             />
-            <button type="submit" disabled={!selectedChatId || isCreatingMessage}>
+            <button type="submit" disabled={!canAskQuestion}>
               {isCreatingMessage ? "Answering..." : "Ask"}
             </button>
           </div>
+          {!isComposerReady && <p className="composer-hint">{chatGuidance.composerHint}</p>}
           {messageError && <p className="error-text">{messageError}</p>}
         </form>
       </section>
@@ -1036,6 +1055,71 @@ function App() {
       </aside>
     </main>
   );
+}
+
+function getChatGuidance({
+  hasSelectedCourse,
+  hasSelectedChat,
+  hasDocuments,
+  hasReadyNotes,
+}: {
+  hasSelectedCourse: boolean;
+  hasSelectedChat: boolean;
+  hasDocuments: boolean;
+  hasReadyNotes: boolean;
+}): ChatGuidance {
+  if (!hasSelectedCourse) {
+    return {
+      kicker: "Course",
+      title: "Choose a course to begin.",
+      description: "Your chats and prepared notes stay organized inside each course.",
+      placeholder: "Choose a course first",
+      composerHint: "Choose or create a course before starting a study chat.",
+      className: "needs-course",
+    };
+  }
+
+  if (!hasSelectedChat) {
+    return {
+      kicker: "Chat",
+      title: "Open a study chat.",
+      description: "Create or choose a chat under this course, then ask questions against prepared notes.",
+      placeholder: "Choose a chat first",
+      composerHint: "Choose or create a chat before asking a question.",
+      className: "needs-chat",
+    };
+  }
+
+  if (!hasDocuments) {
+    return {
+      kicker: "Notes",
+      title: "Add notes for this course.",
+      description: "Upload a document in the Notes panel and prepare it before asking course-specific questions.",
+      placeholder: "Add course notes first",
+      composerHint: "Upload and prepare at least one note before asking a question.",
+      className: "needs-notes",
+    };
+  }
+
+  if (!hasReadyNotes) {
+    return {
+      kicker: "Prepare",
+      title: "Prepare a note to unlock answers.",
+      description: "Uploaded notes need to be prepared once so QueryLearn can cite them in chat.",
+      placeholder: "Prepare a note first",
+      composerHint: "Prepare at least one note before asking a question.",
+      className: "needs-prepare",
+    };
+  }
+
+  return {
+    kicker: "Ready",
+    title: "Ask your first question.",
+    description: "QueryLearn will answer from your prepared notes and keep citations nearby.",
+    placeholder: "Ask about your notes...",
+    composerHint: "",
+    className: "is-ready",
+  };
 }
 
 function getDocumentReadiness(

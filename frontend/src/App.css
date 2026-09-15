@@ -566,6 +566,18 @@ textarea:disabled {
   white-space: nowrap;
 }
 
+.readiness-summary span.is-ready {
+  border-color: var(--success-border);
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.readiness-summary span.is-pending {
+  border-color: var(--warning-border);
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
 .message-list {
   display: flex;
   flex-direction: column;
@@ -586,6 +598,33 @@ textarea:disabled {
   background: var(--surface);
   text-align: center;
   box-shadow: var(--soft-shadow);
+}
+
+.empty-state-kicker {
+  justify-self: center;
+  border: 1px solid var(--accent-soft-border);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--accent);
+  background: var(--accent-bg);
+  font-size: 12px;
+  line-height: 1.2;
+  font-weight: 720;
+}
+
+.empty-state.needs-notes,
+.empty-state.needs-prepare {
+  border-color: var(--warning-border);
+  background:
+    linear-gradient(180deg, var(--warning-bg), var(--surface) 56%),
+    var(--surface);
+}
+
+.empty-state.is-ready {
+  border-color: var(--success-border);
+  background:
+    linear-gradient(180deg, var(--success-bg), var(--surface) 56%),
+    var(--surface);
 }
 
 .empty-state h3 {
@@ -664,6 +703,10 @@ textarea:disabled {
   background: color-mix(in srgb, var(--surface) 92%, var(--surface-muted));
 }
 
+.composer-unavailable {
+  background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
+}
+
 .composer-settings {
   display: grid;
   grid-template-columns: minmax(180px, 260px) minmax(120px, 170px);
@@ -692,6 +735,14 @@ textarea:disabled {
   background: var(--accent);
   color: var(--accent-contrast);
   font-weight: 720;
+}
+
+.composer-hint {
+  max-width: 760px;
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.4;
 }
 
 .preview-list li {
