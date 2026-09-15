@@ -117,6 +117,12 @@ type ErrorResponse = {
   detail?: string;
 };
 
+type DocumentReadiness = {
+  label: string;
+  detail: string;
+  className: string;
+};
+
 function App() {
   const [backendStatus, setBackendStatus] = useState("checking");
   const [courses, setCourses] = useState<Course[]>([]);
@@ -152,6 +158,8 @@ function App() {
   const [courseName, setCourseName] = useState("");
   const [courseError, setCourseError] = useState("");
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
+  const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(true);
+  const [isSourceCheckOpen, setIsSourceCheckOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -815,108 +823,91 @@ function App() {
       </section>
 
       <aside className="context-panel" aria-label="Course notes and sources">
-        <section className="panel">
+        <section className="panel notes-panel">
           <div className="section-heading">
-            <h2>Course Notes</h2>
-            <span>{documents.length} files</span>
-          </div>
-          <form className="upload-form" onSubmit={handleUploadDocument}>
-            <label htmlFor="document-file">Upload notes</label>
-            <input
-              id="document-file"
-              ref={fileInputRef}
-              type="file"
-              accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
-              onChange={handleDocumentFileChange}
-              disabled={!selectedCourseId || isUploadingDocument}
-            />
-            <button
-              type="submit"
-              disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}
-            >
-              {isUploadingDocument ? "Uploading..." : "Upload"}
-            </button>
-          </form>
-          {documentError && <p className="error-text">{documentError}</p>}
-          {prepareError && <p className="error-text">{prepareError}</p>}
-          {!selectedCourseId && <p className="muted-text">Choose a course to manage notes.</p>}
-          {selectedCourseId && documents.length === 0 && !documentError && (
-            <p className="muted-text">Upload notes, then prepare them for answering.</p>
-          )}
-          <ul className="document-list">
-            {documents.map((document) => (
-              <li className="document-row" key={document.id}>
-                <button
-                  className={
-                    document.id === selectedDocumentId
-                      ? "document-summary selected"
-                      : "document-summary"
-                  }
-                  type="button"
-                  onClick={() => handleSelectDocument(document.id)}
-                >
-                  <strong>{document.original_filename}</strong>
-                  <span>
-                    {document.status} - {formatParsedSectionCount(document.parsed_section_count)} -{" "}
-                    {formatChunkCount(document.chunk_count)} -{" "}
-                    {formatIndexedChunkCount(document.indexed_chunk_count)}
-                  </span>
-                  <span>
-                    {document.file_extension} - {formatFileSize(document.file_size)}
-                  </span>
-                  {document.error && <span className="document-error">Error: {document.error}</span>}
-                </button>
-                <button
-                  className="secondary-action"
-                  type="button"
-                  onClick={() => handlePrepareDocument(document.id)}
-                  disabled={preparingDocumentId === document.id}
-                >
-                  {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        </section>
-
-        <section className="panel">
-          <div className="section-heading">
-            <h2>Source Check</h2>
-          </div>
-          <form className="compact-form" onSubmit={handleRetrieveSources}>
-            <label htmlFor="retrieval-question">Question</label>
-            <div className="inline-control">
-              <input
-                id="retrieval-question"
-                type="text"
-                value={retrievalQuestion}
-                onChange={(event) => setRetrievalQuestion(event.target.value)}
-                placeholder="Preview matching notes"
-                disabled={!selectedCourseId || isRetrieving}
-              />
-              <button type="submit" disabled={!selectedCourseId || isRetrieving}>
-                {isRetrieving ? "Finding..." : "Find"}
+            <h2>Notes</h2>
+            <div className="heading-actions">
+              <span>
+                {readyDocumentCount}/{documents.length} ready
+              </span>
+              <button
+                className="collapse-button"
+                type="button"
+                onClick={() => setIsNotesPanelOpen((isOpen) => !isOpen)}
+                aria-expanded={isNotesPanelOpen}
+                aria-controls="notes-panel-content"
+              >
+                {isNotesPanelOpen ? "Hide" : "Show"}
               </button>
             </div>
-          </form>
-          {retrievalError && <p className="error-text">{retrievalError}</p>}
-          {retrievalResults.length === 0 && !retrievalError && (
-            <p className="muted-text">Source previews live here when you need to inspect retrieval.</p>
-          )}
-          {retrievalResults.length > 0 && (
-            <ul className="preview-list">
-              {retrievalResults.map((result) => (
-                <li key={result.chunk_id}>
-                  <strong>{result.document_filename}</strong>
-                  <span>
-                    {formatSourceLabel(result.metadata)} - Chunk {result.chunk_index + 1} - Score{" "}
-                    {formatRetrievalScore(result.score)}
-                  </span>
-                  <pre>{result.text}</pre>
-                </li>
-              ))}
+          </div>
+          <div id="notes-panel-content" className="notes-panel-content" hidden={!isNotesPanelOpen}>
+            <form className="upload-form notes-upload" onSubmit={handleUploadDocument}>
+              <label htmlFor="document-file">Add course notes</label>
+              <input
+                id="document-file"
+                ref={fileInputRef}
+                type="file"
+                accept=".csv,.docx,.md,.pdf,.pptx,.txt,.xlsx"
+                onChange={handleDocumentFileChange}
+                disabled={!selectedCourseId || isUploadingDocument}
+              />
+              <button
+                type="submit"
+                disabled={!selectedCourseId || !selectedDocumentFile || isUploadingDocument}
+              >
+                {isUploadingDocument ? "Uploading..." : "Upload"}
+              </button>
+            </form>
+            {documentError && <p className="error-text">{documentError}</p>}
+            {prepareError && <p className="error-text">{prepareError}</p>}
+            {!selectedCourseId && <p className="muted-text">Choose a course to manage notes.</p>}
+            {selectedCourseId && documents.length === 0 && !documentError && (
+              <div className="notes-empty">
+                <strong>No notes yet</strong>
+                <p>Upload a file, prepare it, then ask questions in chat.</p>
+              </div>
+            )}
+            <ul className="document-list">
+              {documents.map((document) => {
+                const readiness = getDocumentReadiness(document, preparingDocumentId);
+
+                return (
+                  <li className="document-row" key={document.id}>
+                    <button
+                      className={
+                        document.id === selectedDocumentId
+                          ? "document-summary selected"
+                          : "document-summary"
+                      }
+                      type="button"
+                      onClick={() => handleSelectDocument(document.id)}
+                    >
+                      <span className="document-title-row">
+                        <strong>{document.original_filename}</strong>
+                        <span className={`readiness-badge ${readiness.className}`}>
+                          {readiness.label}
+                        </span>
+                      </span>
+                      <span>{readiness.detail}</span>
+                      <span>
+                        {document.file_extension} - {formatFileSize(document.file_size)}
+                      </span>
+                      {document.error && <span className="document-error">Error: {document.error}</span>}
+                    </button>
+                    <button
+                      className="secondary-action"
+                      type="button"
+                      onClick={() => handlePrepareDocument(document.id)}
+                      disabled={preparingDocumentId === document.id}
+                    >
+                      {preparingDocumentId === document.id ? "Preparing..." : "Prepare"}
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
-          )}
+          </div>
         </section>
 
         <section className="panel">
@@ -944,9 +935,66 @@ function App() {
           )}
         </section>
 
+        <section className="panel secondary-panel">
+          <div className="section-heading">
+            <h2>Source Check</h2>
+            <div className="heading-actions">
+              <button
+                className="collapse-button"
+                type="button"
+                onClick={() => setIsSourceCheckOpen((isOpen) => !isOpen)}
+                aria-expanded={isSourceCheckOpen}
+                aria-controls="source-check-content"
+              >
+                {isSourceCheckOpen ? "Hide" : "Show"}
+              </button>
+            </div>
+          </div>
+          <div
+            id="source-check-content"
+            className="collapsible-panel-content"
+            hidden={!isSourceCheckOpen}
+          >
+            <form className="compact-form" onSubmit={handleRetrieveSources}>
+              <label htmlFor="retrieval-question">Question</label>
+              <div className="inline-control">
+                <input
+                  id="retrieval-question"
+                  type="text"
+                  value={retrievalQuestion}
+                  onChange={(event) => setRetrievalQuestion(event.target.value)}
+                  placeholder="Preview matching notes"
+                  disabled={!selectedCourseId || isRetrieving}
+                />
+                <button type="submit" disabled={!selectedCourseId || isRetrieving}>
+                  {isRetrieving ? "Finding..." : "Find"}
+                </button>
+              </div>
+            </form>
+            {retrievalError && <p className="error-text">{retrievalError}</p>}
+            {retrievalResults.length === 0 && !retrievalError && (
+              <p className="muted-text">Use this when you want to inspect retrieval before asking.</p>
+            )}
+            {retrievalResults.length > 0 && (
+              <ul className="preview-list">
+                {retrievalResults.map((result) => (
+                  <li key={result.chunk_id}>
+                    <strong>{result.document_filename}</strong>
+                    <span>
+                      {formatSourceLabel(result.metadata)} - Chunk {result.chunk_index + 1} - Score{" "}
+                      {formatRetrievalScore(result.score)}
+                    </span>
+                    <pre>{result.text}</pre>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
+
         <section className="panel debug-panel">
           <div className="section-heading">
-            <h2>Prepared Text</h2>
+            <h2>Note Inspection</h2>
           </div>
           {sectionError && <p className="error-text">{sectionError}</p>}
           {chunkError && <p className="error-text">{chunkError}</p>}
@@ -988,6 +1036,57 @@ function App() {
       </aside>
     </main>
   );
+}
+
+function getDocumentReadiness(
+  document: SourceDocument,
+  preparingDocumentId: string,
+): DocumentReadiness {
+  if (preparingDocumentId === document.id) {
+    return {
+      label: "Preparing",
+      detail: "Building searchable notes now",
+      className: "is-working",
+    };
+  }
+
+  if (document.error || document.status === "failed") {
+    return {
+      label: "Needs attention",
+      detail: "Preparation failed",
+      className: "is-failed",
+    };
+  }
+
+  if (document.indexed_chunk_count > 0) {
+    return {
+      label: "Ready",
+      detail: `${formatIndexedChunkCount(document.indexed_chunk_count)} available for answers`,
+      className: "is-ready",
+    };
+  }
+
+  if (document.chunk_count > 0) {
+    return {
+      label: "Needs prepare",
+      detail: `${formatChunkCount(document.chunk_count)} waiting to be indexed`,
+      className: "is-pending",
+    };
+  }
+
+  if (document.parsed_section_count > 0) {
+    return {
+      label: "Needs prepare",
+      detail: `${formatParsedSectionCount(document.parsed_section_count)} waiting to be indexed`,
+      className: "is-pending",
+    };
+  }
+
+  return {
+    label: "Needs prepare",
+    detail: "Uploaded but not ready for answers",
+    className: "is-pending",
+  };
 }
 
 function formatFileSize(bytes: number) {
