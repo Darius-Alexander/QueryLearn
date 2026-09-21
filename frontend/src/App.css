@@ -1055,12 +1055,53 @@ button.message-citation:focus-visible {
   background: color-mix(in srgb, var(--surface-muted) 68%, var(--surface));
 }
 
+.answer-options {
+  display: grid;
+  gap: 8px;
+  max-width: 760px;
+}
+
+.answer-options-toggle {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 34px;
+  border-color: var(--border);
+  border-radius: 999px;
+  padding: 6px 11px;
+  background: transparent;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.answer-options-toggle span:first-child {
+  color: var(--text-h);
+  font-weight: 650;
+}
+
+.answer-options-summary {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.answer-options-toggle:hover:not(:disabled) {
+  background: var(--surface-muted);
+  color: var(--text-h);
+}
+
 .composer-settings {
   display: grid;
   grid-template-columns: minmax(180px, 260px) minmax(120px, 170px);
   gap: 10px;
   align-items: end;
   max-width: 760px;
+}
+
+.composer-settings[hidden] {
+  display: none;
 }
 
 .setting-field {

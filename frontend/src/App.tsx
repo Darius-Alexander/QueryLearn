@@ -170,6 +170,7 @@ function App() {
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(true);
   const [isSourceCheckOpen, setIsSourceCheckOpen] = useState(false);
   const [isInspectPanelOpen, setIsInspectPanelOpen] = useState(false);
+  const [isAnswerOptionsOpen, setIsAnswerOptionsOpen] = useState(false);
   const [isCoursePanelOpen, setIsCoursePanelOpen] = useState(true);
   const [isStudyPanelOpen, setIsStudyPanelOpen] = useState(true);
   const [activeCitationNumber, setActiveCitationNumber] = useState<number | null>(null);
@@ -928,34 +929,6 @@ function App() {
         </div>
 
         <form className={isComposerReady ? "composer" : "composer composer-unavailable"} onSubmit={handleCreateMessage}>
-          <div className="composer-settings">
-            <div className="setting-field">
-              <label htmlFor="answer-mode">Answer mode</label>
-              <select
-                id="answer-mode"
-                value={answerMode}
-                onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
-                disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
-              >
-                <option value="supplemented">Notes + AI explanation</option>
-                <option value="notes_only">Notes only</option>
-              </select>
-            </div>
-            <div className="setting-field">
-              <label htmlFor="answer-model">Model</label>
-              <select
-                id="answer-model"
-                value={answerModelChoice}
-                onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
-                disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
-              >
-                <option value="economy">Economy</option>
-                <option value="fast">Fast</option>
-                <option value="balanced">Balanced</option>
-                <option value="deep">Deep</option>
-              </select>
-            </div>
-          </div>
           <label htmlFor="message-content">Message</label>
           <div className="composer-input-row">
             <textarea
@@ -969,6 +942,52 @@ function App() {
             <button type="submit" disabled={!canAskQuestion}>
               {isCreatingMessage ? "Answering..." : "Ask"}
             </button>
+          </div>
+          <div className="answer-options">
+            <button
+              className="answer-options-toggle"
+              type="button"
+              onClick={() => setIsAnswerOptionsOpen((isOpen) => !isOpen)}
+              aria-expanded={isAnswerOptionsOpen}
+              aria-controls="answer-options-content"
+            >
+              <span>Answer options</span>
+              <span className="answer-options-summary">
+                {formatAnswerMode(answerMode)} · {formatAnswerModelChoice(answerModelChoice)}
+              </span>
+            </button>
+            <div
+              id="answer-options-content"
+              className="composer-settings"
+              hidden={!isAnswerOptionsOpen}
+            >
+              <div className="setting-field">
+                <label htmlFor="answer-mode">Answer mode</label>
+                <select
+                  id="answer-mode"
+                  value={answerMode}
+                  onChange={(event) => setAnswerMode(event.target.value as AnswerMode)}
+                  disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
+                >
+                  <option value="supplemented">Notes + AI explanation</option>
+                  <option value="notes_only">Notes only</option>
+                </select>
+              </div>
+              <div className="setting-field">
+                <label htmlFor="answer-model">Model</label>
+                <select
+                  id="answer-model"
+                  value={answerModelChoice}
+                  onChange={(event) => setAnswerModelChoice(event.target.value as AnswerModelChoice)}
+                  disabled={!selectedChatId || !hasReadyNotes || isCreatingMessage}
+                >
+                  <option value="economy">Economy</option>
+                  <option value="fast">Fast</option>
+                  <option value="balanced">Balanced</option>
+                  <option value="deep">Deep</option>
+                </select>
+              </div>
+            </div>
           </div>
           {!isComposerReady && <p className="composer-hint">{chatGuidance.composerHint}</p>}
           {messageError && <p className="error-text">{messageError}</p>}
@@ -1478,6 +1497,15 @@ function formatSourceCount(count: number) {
 
 function formatRetrievalScore(score: number) {
   return score.toFixed(3);
+}
+
+function formatAnswerMode(mode: AnswerMode) {
+  const labels: Record<AnswerMode, string> = {
+    supplemented: "Notes + AI explanation",
+    notes_only: "Notes only",
+  };
+
+  return labels[mode];
 }
 
 function formatAnswerModelChoice(choice: AnswerModelChoiceResponse) {
