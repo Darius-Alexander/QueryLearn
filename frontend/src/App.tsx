@@ -169,6 +169,7 @@ function App() {
   const [isCreatingCourse, setIsCreatingCourse] = useState(false);
   const [isNotesPanelOpen, setIsNotesPanelOpen] = useState(true);
   const [isSourceCheckOpen, setIsSourceCheckOpen] = useState(false);
+  const [isInspectPanelOpen, setIsInspectPanelOpen] = useState(false);
   const [isCoursePanelOpen, setIsCoursePanelOpen] = useState(true);
   const [isStudyPanelOpen, setIsStudyPanelOpen] = useState(true);
   const [activeCitationNumber, setActiveCitationNumber] = useState<number | null>(null);
@@ -1135,103 +1136,128 @@ function App() {
             </div>
           </section>
 
-          <section className="panel secondary-panel">
-          <div className="section-heading">
-            <h2>Source Check</h2>
-            <div className="heading-actions">
-              <button
-                className="collapse-button"
-                type="button"
-                onClick={() => setIsSourceCheckOpen((isOpen) => !isOpen)}
-                aria-expanded={isSourceCheckOpen}
-                aria-controls="source-check-content"
-              >
-                {isSourceCheckOpen ? "Hide" : "Show"}
-              </button>
-            </div>
-          </div>
-          <div
-            id="source-check-content"
-            className="collapsible-panel-content"
-            hidden={!isSourceCheckOpen}
-          >
-            <form className="compact-form" onSubmit={handleRetrieveSources}>
-              <label htmlFor="retrieval-question">Question</label>
-              <div className="inline-control">
-                <input
-                  id="retrieval-question"
-                  type="text"
-                  value={retrievalQuestion}
-                  onChange={(event) => setRetrievalQuestion(event.target.value)}
-                  placeholder="Preview matching notes"
-                  disabled={!selectedCourseId || isRetrieving}
-                />
-                <button type="submit" disabled={!selectedCourseId || isRetrieving}>
-                  {isRetrieving ? "Finding..." : "Find"}
+          <section className="panel inspect-panel">
+            <div className="section-heading">
+              <div>
+                <h2>Inspect</h2>
+                <p className="section-subtitle">Optional retrieval and note debugging.</p>
+              </div>
+              <div className="heading-actions">
+                <button
+                  className="collapse-button"
+                  type="button"
+                  onClick={() => setIsInspectPanelOpen((isOpen) => !isOpen)}
+                  aria-expanded={isInspectPanelOpen}
+                  aria-controls="inspect-panel-content"
+                >
+                  {isInspectPanelOpen ? "Hide" : "Show"}
                 </button>
               </div>
-            </form>
-            {retrievalError && <p className="error-text">{retrievalError}</p>}
-            {retrievalResults.length === 0 && !retrievalError && (
-              <p className="muted-text">Use this when you want to inspect retrieval before asking.</p>
-            )}
-            {retrievalResults.length > 0 && (
-              <ul className="preview-list">
-                {retrievalResults.map((result) => (
-                  <li key={result.chunk_id}>
-                    <strong>{result.document_filename}</strong>
-                    <span>
-                      {formatSourceLabel(result.metadata)} - Chunk {result.chunk_index + 1} - Score{" "}
-                      {formatRetrievalScore(result.score)}
-                    </span>
-                    <pre>{result.text}</pre>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-          </section>
+            </div>
+            <div
+              id="inspect-panel-content"
+              className="collapsible-panel-content inspect-panel-content"
+              hidden={!isInspectPanelOpen}
+            >
+              <section className="panel secondary-panel">
+                <div className="section-heading">
+                  <h3>Source Check</h3>
+                  <div className="heading-actions">
+                    <button
+                      className="collapse-button"
+                      type="button"
+                      onClick={() => setIsSourceCheckOpen((isOpen) => !isOpen)}
+                      aria-expanded={isSourceCheckOpen}
+                      aria-controls="source-check-content"
+                    >
+                      {isSourceCheckOpen ? "Hide" : "Show"}
+                    </button>
+                  </div>
+                </div>
+                <div
+                  id="source-check-content"
+                  className="collapsible-panel-content"
+                  hidden={!isSourceCheckOpen}
+                >
+                  <form className="compact-form" onSubmit={handleRetrieveSources}>
+                    <label htmlFor="retrieval-question">Question</label>
+                    <div className="inline-control">
+                      <input
+                        id="retrieval-question"
+                        type="text"
+                        value={retrievalQuestion}
+                        onChange={(event) => setRetrievalQuestion(event.target.value)}
+                        placeholder="Preview matching notes"
+                        disabled={!selectedCourseId || isRetrieving}
+                      />
+                      <button type="submit" disabled={!selectedCourseId || isRetrieving}>
+                        {isRetrieving ? "Finding..." : "Find"}
+                      </button>
+                    </div>
+                  </form>
+                  {retrievalError && <p className="error-text">{retrievalError}</p>}
+                  {retrievalResults.length === 0 && !retrievalError && (
+                    <p className="muted-text">Use this when you want to inspect retrieval before asking.</p>
+                  )}
+                  {retrievalResults.length > 0 && (
+                    <ul className="preview-list">
+                      {retrievalResults.map((result) => (
+                        <li key={result.chunk_id}>
+                          <strong>{result.document_filename}</strong>
+                          <span>
+                            {formatSourceLabel(result.metadata)} - Chunk {result.chunk_index + 1} - Score{" "}
+                            {formatRetrievalScore(result.score)}
+                          </span>
+                          <pre>{result.text}</pre>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </section>
 
-          <section className="panel debug-panel">
-          <div className="section-heading">
-            <h2>Note Inspection</h2>
-          </div>
-          {sectionError && <p className="error-text">{sectionError}</p>}
-          {chunkError && <p className="error-text">{chunkError}</p>}
-          {selectedDocumentId && parsedSections.length === 0 && !sectionError && (
-            <p className="muted-text">No parsed preview for this document yet.</p>
-          )}
-          {parsedSections.length > 0 && (
-            <details>
-              <summary>Parsed sections ({parsedSections.length})</summary>
-              <ul className="preview-list">
-                {parsedSections.map((section) => (
-                  <li key={section.id}>
-                    <strong>
-                      {section.label} ({section.kind})
-                    </strong>
-                    <pre>{section.text}</pre>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {selectedDocumentId && chunks.length === 0 && !chunkError && (
-            <p className="muted-text">No chunk preview for this document yet.</p>
-          )}
-          {chunks.length > 0 && (
-            <details>
-              <summary>Chunks ({chunks.length})</summary>
-              <ul className="preview-list">
-                {chunks.map((chunk) => (
-                  <li key={chunk.id}>
-                    <strong>Chunk {chunk.chunk_index + 1}</strong>
-                    <pre>{chunk.text}</pre>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
+              <section className="panel debug-panel">
+                <div className="section-heading">
+                  <h3>Note Inspection</h3>
+                </div>
+                {sectionError && <p className="error-text">{sectionError}</p>}
+                {chunkError && <p className="error-text">{chunkError}</p>}
+                {selectedDocumentId && parsedSections.length === 0 && !sectionError && (
+                  <p className="muted-text">No parsed preview for this document yet.</p>
+                )}
+                {parsedSections.length > 0 && (
+                  <details>
+                    <summary>Parsed sections ({parsedSections.length})</summary>
+                    <ul className="preview-list">
+                      {parsedSections.map((section) => (
+                        <li key={section.id}>
+                          <strong>
+                            {section.label} ({section.kind})
+                          </strong>
+                          <pre>{section.text}</pre>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+                {selectedDocumentId && chunks.length === 0 && !chunkError && (
+                  <p className="muted-text">No chunk preview for this document yet.</p>
+                )}
+                {chunks.length > 0 && (
+                  <details>
+                    <summary>Chunks ({chunks.length})</summary>
+                    <ul className="preview-list">
+                      {chunks.map((chunk) => (
+                        <li key={chunk.id}>
+                          <strong>Chunk {chunk.chunk_index + 1}</strong>
+                          <pre>{chunk.text}</pre>
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                )}
+              </section>
+            </div>
           </section>
         </div>
 

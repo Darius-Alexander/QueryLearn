@@ -215,6 +215,21 @@
   text-transform: uppercase;
 }
 
+.section-heading h3 {
+  margin: 0;
+  color: var(--text-h);
+  font-size: 13px;
+  line-height: 1.25;
+  font-weight: 720;
+}
+
+.section-subtitle {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
 .section-heading span,
 .status-pill {
   color: var(--text);
@@ -1092,11 +1107,25 @@ button.message-citation:focus-visible {
 }
 
 .secondary-panel {
-  opacity: 0.9;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-muted);
 }
 
 .debug-panel {
-  opacity: 0.86;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px;
+  background: var(--surface-muted);
+}
+
+.inspect-panel {
+  opacity: 0.9;
+}
+
+.inspect-panel-content {
+  gap: 10px;
 }
 
 details {
