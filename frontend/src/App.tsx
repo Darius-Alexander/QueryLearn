@@ -377,7 +377,7 @@ function App() {
         setCourseName("");
       })
       .catch(() => {
-        setCourseError("Could not create course. Check that the backend is running.");
+        setCourseError("QueryLearn could not create that course right now. Check that the app backend is running.");
       })
       .finally(() => {
         setIsCreatingCourse(false);
@@ -455,7 +455,7 @@ function App() {
         }
       })
       .catch(() => {
-        setDocumentError("Could not upload document. Check the file type and backend connection.");
+        setDocumentError("QueryLearn could not upload that file. Check the file type, then try again.");
       })
       .finally(() => {
         setIsUploadingDocument(false);
@@ -506,7 +506,7 @@ function App() {
       if (!response.ok) {
         const message = await readErrorDetail(
           response,
-          "Could not prepare document. Check that the file can be parsed and OPENAI_API_KEY is set.",
+          "QueryLearn could not prepare this note right now. Your uploaded file is still saved.",
         );
         await refreshDocument(documentId).catch(() => undefined);
         throw new Error(message);
@@ -527,7 +527,11 @@ function App() {
       setParsedSections(loadedSections);
       setChunks(loadedChunks);
     } catch (error) {
-      setPrepareError(error instanceof Error ? error.message : "Could not prepare document.");
+      setPrepareError(
+        error instanceof Error
+          ? error.message
+          : "QueryLearn could not prepare this note right now.",
+      );
     } finally {
       setPreparingDocumentId("");
     }
@@ -562,7 +566,7 @@ function App() {
       if (!response.ok) {
         const message = await readErrorDetail(
           response,
-          "Could not retrieve sources. Check that the course has indexed chunks.",
+          "QueryLearn could not check sources right now. Your prepared notes are still saved.",
         );
         throw new Error(message);
       }
@@ -572,7 +576,11 @@ function App() {
       setRetrievalQuestion(retrievalResponse.question);
     } catch (error) {
       setRetrievalResults([]);
-      setRetrievalError(error instanceof Error ? error.message : "Could not retrieve sources.");
+      setRetrievalError(
+        error instanceof Error
+          ? error.message
+          : "QueryLearn could not check sources right now.",
+      );
     } finally {
       setIsRetrieving(false);
     }
@@ -618,7 +626,7 @@ function App() {
         setChatTitle("");
       })
       .catch(() => {
-        setChatError("Could not create chat. Check that the backend is running.");
+        setChatError("QueryLearn could not create that chat right now. Check that the app backend is running.");
       })
       .finally(() => {
         setIsCreatingChat(false);
@@ -643,7 +651,7 @@ function App() {
 
     const content = messageContent.trim();
     if (!content) {
-      setMessageError("Message content is required");
+      setMessageError("Write a question before asking.");
       return;
     }
 
@@ -671,11 +679,11 @@ function App() {
       });
 
       if (!response.ok) {
-        const message = await readErrorDetail(
+        const detail = await readErrorDetail(
           response,
-          "Could not generate answer. Check that the course has indexed chunks and the backend is running.",
+          "QueryLearn could not generate an answer right now.",
         );
-        throw new Error(message);
+        throw new Error(formatAnswerFailureMessage(detail, response.status));
       }
 
       const answerResponse = (await response.json()) as AnswerResponse;
@@ -689,7 +697,11 @@ function App() {
     } catch (error) {
       setLatestAnswerResponse(null);
       setActiveCitationNumber(null);
-      setMessageError(error instanceof Error ? error.message : "Could not generate answer.");
+      setMessageError(
+        error instanceof Error
+          ? error.message
+          : "QueryLearn could not generate an answer right now.",
+      );
     } finally {
       setIsCreatingMessage(false);
     }
@@ -761,6 +773,12 @@ function App() {
                 API {backendStatus}
               </span>
             </div>
+            {backendStatus === "offline" && (
+              <div className="setup-callout" role="status">
+                <strong>Backend offline</strong>
+                <p>Course, note, and answer actions need the local API to be running.</p>
+              </div>
+            )}
             <form className="compact-form" onSubmit={handleCreateCourse}>
               <label htmlFor="course-name">Course name</label>
               <div className="inline-control">
@@ -809,7 +827,10 @@ function App() {
                       </form>
                       {chatError && <p className="error-text">{chatError}</p>}
                       {chats.length === 0 && !chatError && (
-                        <p className="muted-text">No chats yet.</p>
+                        <div className="setup-callout">
+                          <strong>No chats yet</strong>
+                          <p>Create a chat for this course to start asking questions.</p>
+                        </div>
                       )}
                       <ul className="chat-list" aria-label={`Chats in ${course.name}`}>
                         {chats.map((chat) => (
@@ -988,7 +1009,7 @@ function App() {
             {!latestAnswerResponse && (
               <div className="sources-empty">
                 <strong>No answer sources yet</strong>
-                <p>After QueryLearn answers, the notes it used will appear here.</p>
+                <p>Ask a question after preparing notes, and the evidence for the latest answer will appear here.</p>
               </div>
             )}
             {latestAnswerResponse && (
@@ -1069,7 +1090,7 @@ function App() {
               {selectedCourseId && documents.length === 0 && !documentError && (
                 <div className="notes-empty">
                   <strong>No notes yet</strong>
-                  <p>Upload a file, prepare it, then ask questions in chat.</p>
+                  <p>Upload a course file, then use Prepare once so QueryLearn can search it.</p>
                 </div>
               )}
               <ul className="document-list">
@@ -1448,6 +1469,24 @@ function formatAnswerModelChoice(choice: AnswerModelChoiceResponse) {
 function formatEvidenceLocation(evidence: AnswerEvidence) {
   const sourceLabel = evidence.source_label.trim() || formatSourceLabel(evidence.metadata);
   return `${sourceLabel} - Chunk ${evidence.chunk_index + 1}`;
+}
+
+function formatAnswerFailureMessage(detail: string, status: number) {
+  const normalizedDetail = detail.toLowerCase();
+
+  if (status === 502 || normalizedDetail.includes("bad gateway")) {
+    return "QueryLearn could not reach the answer service right now. Your prepared notes are still saved. Try again in a moment.";
+  }
+
+  if (normalizedDetail.includes("indexed chunk") || normalizedDetail.includes("prepared note")) {
+    return "Prepare at least one note before asking a question.";
+  }
+
+  if (detail.trim() && !normalizedDetail.includes("traceback")) {
+    return detail;
+  }
+
+  return "QueryLearn could not generate an answer right now. Your prepared notes are still saved.";
 }
 
 function formatSourceLabel(metadata: Record<string, unknown>) {
