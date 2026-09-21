@@ -831,10 +831,23 @@ textarea:disabled {
   padding: 0 5px;
   color: var(--accent);
   background: var(--accent-bg);
+  font: inherit;
   font-size: 0.86em;
   font-weight: 720;
   line-height: 1.45;
+  min-height: auto;
   white-space: nowrap;
+}
+
+button.message-citation {
+  cursor: pointer;
+}
+
+button.message-citation:hover,
+button.message-citation:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent-bg) 72%, var(--surface));
 }
 
 .pending-dots {
@@ -937,6 +950,19 @@ textarea:disabled {
   border-radius: 8px;
   padding: 11px;
   background: var(--surface-muted);
+  scroll-margin-block: 18px;
+}
+
+.source-card.is-active-source {
+  border-color: var(--accent);
+  background:
+    linear-gradient(180deg, var(--accent-bg), var(--surface-muted) 64%),
+    var(--surface-muted);
+  box-shadow: 0 0 0 3px var(--accent-soft-border);
+}
+
+.source-card:focus {
+  outline: none;
 }
 
 .source-card-heading {

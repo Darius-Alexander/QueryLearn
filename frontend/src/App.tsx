@@ -171,7 +171,9 @@ function App() {
   const [isSourceCheckOpen, setIsSourceCheckOpen] = useState(false);
   const [isCoursePanelOpen, setIsCoursePanelOpen] = useState(true);
   const [isStudyPanelOpen, setIsStudyPanelOpen] = useState(true);
+  const [activeCitationNumber, setActiveCitationNumber] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const sourceCardRefs = useRef<Record<number, HTMLLIElement | null>>({});
 
   useEffect(() => {
     fetch(`${API_BASE_URL}/api/health`)
@@ -207,6 +209,22 @@ function App() {
       mediaQuery.removeEventListener("change", syncPanelDefaults);
     };
   }, []);
+
+  useEffect(() => {
+    if (activeCitationNumber === null || !isStudyPanelOpen) {
+      return;
+    }
+
+    const animationFrame = window.requestAnimationFrame(() => {
+      const sourceCard = sourceCardRefs.current[activeCitationNumber];
+      sourceCard?.scrollIntoView({ block: "center", behavior: "smooth" });
+      sourceCard?.focus({ preventScroll: true });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+    };
+  }, [activeCitationNumber, isStudyPanelOpen, latestAnswerResponse]);
 
   useEffect(() => {
     if (!selectedCourseId) {
@@ -379,6 +397,7 @@ function App() {
     setChats([]);
     setMessages([]);
     setLatestAnswerResponse(null);
+    setActiveCitationNumber(null);
     setDocumentError("");
     setSectionError("");
     setChunkError("");
@@ -476,6 +495,7 @@ function App() {
     setRetrievalError("");
     setRetrievalResults([]);
     setLatestAnswerResponse(null);
+    setActiveCitationNumber(null);
     setPreparingDocumentId(documentId);
 
     try {
@@ -594,6 +614,7 @@ function App() {
         );
         setSelectedChatId(createdChat.id);
         setLatestAnswerResponse(null);
+        setActiveCitationNumber(null);
         setChatTitle("");
       })
       .catch(() => {
@@ -608,6 +629,7 @@ function App() {
     setSelectedChatId(chatId);
     setMessages([]);
     setLatestAnswerResponse(null);
+    setActiveCitationNumber(null);
     setMessageError("");
   }
 
@@ -632,6 +654,7 @@ function App() {
 
     setMessageError("");
     setIsCreatingMessage(true);
+    setActiveCitationNumber(null);
 
     try {
       const response = await fetch(`${API_BASE_URL}/api/chats/${selectedChatId}/answers`, {
@@ -665,6 +688,7 @@ function App() {
       setMessageContent("");
     } catch (error) {
       setLatestAnswerResponse(null);
+      setActiveCitationNumber(null);
       setMessageError(error instanceof Error ? error.message : "Could not generate answer.");
     } finally {
       setIsCreatingMessage(false);
@@ -688,6 +712,15 @@ function App() {
     isCoursePanelOpen ? "course-panel-open" : "course-panel-collapsed",
     isStudyPanelOpen ? "study-panel-open" : "study-panel-collapsed",
   ].join(" ");
+
+  const latestCitationNumbers = new Set(
+    latestAnswerResponse?.evidence.map((evidence) => evidence.citation_number) ?? [],
+  );
+
+  function handleCitationClick(citationNumber: number) {
+    setActiveCitationNumber(citationNumber);
+    setIsStudyPanelOpen(true);
+  }
 
   return (
     <main className={appShellClassName}>
@@ -834,7 +867,15 @@ function App() {
               <header className="message-heading">
                 <span className="message-role">{message.role === "assistant" ? "QueryLearn" : "You"}</span>
               </header>
-              <div className="message-content">{renderMessageContent(message)}</div>
+              <div className="message-content">
+                {renderMessageContent(
+                  message,
+                  message.id === latestAnswerResponse?.assistant_message.id
+                    ? latestCitationNumbers
+                    : new Set<number>(),
+                  handleCitationClick,
+                )}
+              </div>
             </article>
           ))}
           {isCreatingMessage && (
@@ -958,7 +999,19 @@ function App() {
                 </p>
                 <ul className="source-card-list">
                   {latestAnswerResponse.evidence.map((evidence) => (
-                    <li className="source-card" key={`${evidence.chunk_id}-${evidence.citation_number}`}>
+                    <li
+                      id={`source-citation-${evidence.citation_number}`}
+                      className={
+                        evidence.citation_number === activeCitationNumber
+                          ? "source-card is-active-source"
+                          : "source-card"
+                      }
+                      key={`${evidence.chunk_id}-${evidence.citation_number}`}
+                      ref={(element) => {
+                        sourceCardRefs.current[evidence.citation_number] = element;
+                      }}
+                      tabIndex={-1}
+                    >
                       <div className="source-card-heading">
                         <span className="citation-marker">[{evidence.citation_number}]</span>
                         <div>
@@ -1241,7 +1294,11 @@ function getChatGuidance({
   };
 }
 
-function renderMessageContent(message: Message) {
+function renderMessageContent(
+  message: Message,
+  clickableCitationNumbers: Set<number>,
+  onCitationClick: (citationNumber: number) => void,
+) {
   const paragraphs = message.content
     .split(/\n{2,}/)
     .map((paragraph) => paragraph.trim())
@@ -1253,14 +1310,35 @@ function renderMessageContent(message: Message) {
 
   return paragraphs.map((paragraph, index) => (
     <p key={`${message.id}-paragraph-${index}`}>
-      {message.role === "assistant" ? renderCitationText(paragraph) : paragraph}
+      {message.role === "assistant"
+        ? renderCitationText(paragraph, clickableCitationNumbers, onCitationClick)
+        : paragraph}
     </p>
   ));
 }
 
-function renderCitationText(text: string) {
+function renderCitationText(
+  text: string,
+  clickableCitationNumbers: Set<number>,
+  onCitationClick: (citationNumber: number) => void,
+) {
   return text.split(/(\[\d+\])/g).map((part, index) => {
     if (/^\[\d+\]$/.test(part)) {
+      const citationNumber = Number(part.slice(1, -1));
+      if (clickableCitationNumbers.has(citationNumber)) {
+        return (
+          <button
+            className="message-citation"
+            key={`${part}-${index}`}
+            type="button"
+            onClick={() => onCitationClick(citationNumber)}
+            aria-label={`Show source ${part}`}
+          >
+            {part}
+          </button>
+        );
+      }
+
       return (
         <span className="message-citation" key={`${part}-${index}`}>
           {part}
